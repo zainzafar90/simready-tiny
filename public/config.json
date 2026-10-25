@@ -1,0 +1,7 @@
+{
+  "name": "Atlas",
+  "subtitle": "The SimReady library",
+  "dataset": "nvidia/simready-assets",
+  "viewerUrl": "/vendor/usd/index.html",
+  "sourceUrl": "https://huggingface.co/datasets/nvidia/simready-assets"
+}

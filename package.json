@@ -1,0 +1,28 @@
+{
+  "name": "simready-atlas",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Atlas Gallery \u2014 a static-first, image-led SimReady asset library.",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "dev": "node scripts/serve.mjs",
+    "setup": "node scripts/setup.mjs",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs --dist",
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "python3 tests/browser.py",
+    "bench": "node scripts/benchmark.mjs",
+    "check": "node scripts/check.mjs",
+    "catalog:sync": "node scripts/sync-catalog.mjs",
+    "catalog:tags": "node scripts/merge-tags.mjs",
+    "catalog:thumbs": "node scripts/mirror-thumbs.mjs",
+    "tag:jev": "node scripts/tag-jev.mjs",
+    "viewer:setup": "node scripts/setup.mjs --viewer-only",
+    "deploy": "node scripts/deploy.mjs",
+    "test:browser:memory": "python3 tests/browser.py --in-memory"
+  }
+}

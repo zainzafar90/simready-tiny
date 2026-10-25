@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.cache/
+reports/
+.env
+.env.*
+!.env.example
+.wrangler/
+public/vendor/
