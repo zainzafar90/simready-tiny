@@ -1,10 +1,24 @@
 import { createServer } from 'node:http';
 import { stat, readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { resolve, extname, sep } from 'node:path';
 import { brotliCompress, gzip, constants } from 'node:zlib';
 import { promisify } from 'node:util';
 import { ROOT, arg, flag, isMain } from './io.mjs';
-export const CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src 'self' https:; worker-src 'self' blob:; frame-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'";
+const UPSTREAM_HOSTS = ['https://huggingface.co', 'https://*.huggingface.co', 'https://*.hf.co'];
+
+/** Model hosts: configured mirror plus Hugging Face. */
+export function modelHosts(config) {
+    const base = typeof config?.modelBaseUrl === 'string' && URL.canParse(config.modelBaseUrl) ? new URL(config.modelBaseUrl) : null;
+    return [...(base?.protocol === 'https:' ? [base.origin] : []), ...UPSTREAM_HOSTS].join(' ');
+}
+
+export function contentSecurityPolicy(config) {
+    const hosts = modelHosts(config);
+    return `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ${hosts}; connect-src 'self' ${hosts}; worker-src 'self' blob:; frame-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'`;
+}
+
+export const CSP = contentSecurityPolicy(JSON.parse(readFileSync(resolve(ROOT, 'public/config.json'), 'utf8')));
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.wasm': 'application/wasm', '.txt': 'text/plain; charset=utf-8' };
 const COMPRESSIBLE = /^(text\/|application\/(json|wasm)|image\/svg)/;
 const brotli = promisify(brotliCompress), gzipAsync = promisify(gzip);

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { ROOT, currentCatalog, writeCatalog, flag, arg } from './io.mjs';
+import { ROOT, currentCatalog, writeCatalog, flag, arg, isMain } from './io.mjs';
 import { fetchWithRetry } from './http.mjs';
 
 /* flags: --confirm-rights --limit --dry-run --concurrency */
@@ -17,11 +17,22 @@ const exists = path => stat(path).then(() => true, () => false);
 const baseName = (asset, revision) => createHash('sha256').update(`${revision}:${asset.thumbnailPath || asset.id}`).digest('hex').slice(0, 20);
 const sourceUrl = asset => [asset.remoteThumbnailUrl, asset.thumbnailUrl].find(url => url?.startsWith('https://huggingface.co/'));
 
+export async function readCapped(body, limit) {
+    const chunks = [];
+    let total = 0;
+    for await (const chunk of body) {
+        total += chunk.length;
+        if (total > limit) throw new Error(`Response exceeds ${limit} bytes`);
+        chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+}
+
 async function downloadPng(url) {
     const response = await fetchWithRetry(url);
     if (Number(response.headers.get('content-length')) > MAX_PNG_BYTES) throw new Error('Thumbnail exceeds 4 MB limit');
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.length > MAX_PNG_BYTES || !bytes.subarray(0, 8).equals(PNG_MAGIC)) throw new Error('Invalid PNG thumbnail');
+    const bytes = await readCapped(response.body, MAX_PNG_BYTES);
+    if (!bytes.subarray(0, 8).equals(PNG_MAGIC)) throw new Error('Invalid PNG thumbnail');
     return bytes;
 }
 
@@ -107,4 +118,4 @@ async function main() {
     if (stats.failed) process.exitCode = 1;
 }
 
-main().catch(error => { console.error(error.message); process.exitCode = 1; });
+if (isMain(import.meta.url)) main().catch(error => { console.error(error.message); process.exitCode = 1; });

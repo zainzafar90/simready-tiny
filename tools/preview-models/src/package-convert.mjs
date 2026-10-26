@@ -1,5 +1,6 @@
 import { mkdir, rm, stat } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
+import { dirname } from 'node:path';
+import { resolveInside } from './safe-path.mjs';
 import { download, hfUrl } from './hf-download.mjs';
 import { isTexture, shrinkTexture } from './texture-shrink.mjs';
 
@@ -12,12 +13,12 @@ async function pool(items, size, worker) {
 
 /** Converts one package: download, shrink textures, upload. */
 export async function convertPackage({ revision, name, files, r2, workDir, maxTexture, concurrency, dryRun }) {
-    const dir = join(workDir, name);
+    const dir = resolveInside(workDir, name);
     const stats = { files: files.length, bytesIn: 0, bytesOut: 0, resized: 0 };
     await rm(dir, { recursive: true, force: true });
     try {
         await pool(files, concurrency, async ([relative, size]) => {
-            const path = `${name}/${relative}`, local = join(dir, relative);
+            const path = `${name}/${relative}`, local = resolveInside(dir, relative);
             await mkdir(dirname(local), { recursive: true });
             const received = await download(hfUrl(revision, path), local, size);
             const resized = isTexture(relative) && await shrinkTexture(local, maxTexture);

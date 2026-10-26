@@ -12,7 +12,7 @@ const LAZY_FILES = new Set(['preview/preview-dialog.js', 'preview/preview-viewer
 export function headersFile(csp = CSP) {
     const viewerCsp = csp.replace("frame-ancestors 'none'", "frame-ancestors 'self'");
     const rules = [
-        ['/*', ['X-Content-Type-Options: nosniff', 'Referrer-Policy: no-referrer', 'Permissions-Policy: camera=(), microphone=(), geolocation=()', `Content-Security-Policy: ${csp}`]],
+        ['/*', ['X-Content-Type-Options: nosniff', 'Referrer-Policy: no-referrer', 'Permissions-Policy: camera=(), microphone=(), geolocation=()', 'Strict-Transport-Security: max-age=31536000', 'Cross-Origin-Opener-Policy: same-origin', `Content-Security-Policy: ${csp}`]],
         ['/app/*', ['Cache-Control: public, max-age=31536000, immutable']],
         ['/data/*', ['Cache-Control: public, max-age=31536000, immutable']],
         ['/thumbs/*', ['Cache-Control: public, max-age=2592000']],

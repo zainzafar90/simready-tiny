@@ -5,6 +5,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createR2, describeError } from './r2-client.mjs';
 import { convertPackage } from './package-convert.mjs';
+import { isRevision, isSafeRelative } from './safe-path.mjs';
 
 /* flags: --shard i/n --limit --dry-run --max-texture --concurrency */
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -29,6 +30,9 @@ const mb = bytes => (bytes / MB).toFixed(1);
 async function main() {
     const options = parseArgs(process.argv);
     const { revision, packages } = JSON.parse(gunzipSync(await readFile(resolve(HERE, '../manifest.json.gz'))));
+    if (!isRevision(revision)) throw new Error('Manifest revision must be a 40-character commit hash.');
+    const unsafe = Object.keys(packages).find(name => !isSafeRelative(name) || name.includes('/'));
+    if (unsafe) throw new Error(`Unsafe package name in manifest: ${unsafe.slice(0, 200)}`);
     const mine = shardPackages(Object.keys(packages), options.index, options.count).slice(0, options.limit);
     const r2 = options.dryRun ? null : createR2();
     const tag = `[shard ${options.index}/${options.count}]`;

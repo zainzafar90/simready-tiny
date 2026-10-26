@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { isSafeRelative } from './safe-path.mjs';
 
 /* run on the Mac: needs .cache tree */
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -13,7 +14,9 @@ export function previewFiles(entries) {
         if (entry.type !== 'file') continue;
         const cut = entry.path.indexOf('/simready_usd/');
         if (cut < 0 || entry.path.includes('/.thumbs/') || entry.path.includes('/source_assets/')) continue;
-        (packages[entry.path.slice(0, cut)] ??= []).push([entry.path.slice(cut + 1), entry.size]);
+        const name = entry.path.slice(0, cut), relative = entry.path.slice(cut + 1);
+        if (!isSafeRelative(name) || name.includes('/') || !isSafeRelative(relative)) throw new Error(`Unsafe dataset path: ${entry.path.slice(0, 200)}`);
+        (packages[name] ??= []).push([relative, entry.size]);
     }
     return packages;
 }

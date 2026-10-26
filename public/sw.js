@@ -1,6 +1,8 @@
 const CACHE = 'atlas-hf-v1';
 const MAX_ENTRIES = 3000;
 const MAX_BYTES = 2 * 1024 ** 3;
+const MAX_ENTRY_BYTES = 512 * 1024 ** 2;
+let maintenance = Promise.resolve();
 /* revision-pinned URLs never change */
 const PINNED = /^https:\/\/(huggingface\.co\/datasets\/nvidia\/simready-assets\/resolve|simready-models\.zainzafar\.net)\/[0-9a-f]{40}\//;
 
@@ -21,17 +23,22 @@ async function cacheFirst(request, event) {
     const hit = await cache.match(request.url);
     if (hit) return hit;
     const response = await fetch(request);
-    if (response.ok && response.type === 'cors') event.waitUntil(store(cache, request.url, response.clone()));
+    if (cacheable(response)) event.waitUntil(store(cache, request.url, response.clone()));
     return response;
 }
 
-async function store(cache, url, response) {
-    try {
+function cacheable(response) {
+    const size = Number(response.headers.get('content-length'));
+    return response.ok && response.type === 'cors' && !(size > MAX_ENTRY_BYTES);
+}
+
+/** Writes and trims one at a time. */
+function store(cache, url, response) {
+    maintenance = maintenance.then(async () => {
         await cache.put(url, response);
         await trim(cache);
-    } catch (error) {
-        console.warn('Atlas cache write skipped', url, error?.name);
-    }
+    }).catch(error => console.warn('Model cache write skipped', url, error?.name));
+    return maintenance;
 }
 
 async function overBudget() {
@@ -43,7 +50,7 @@ async function trim(cache) {
     const keys = await cache.keys();
     let drop = Math.max(0, keys.length - MAX_ENTRIES);
     for (const key of keys.slice(0, drop)) await cache.delete(key);
-    while (drop < keys.length - 1 && await overBudget()) {
+    while (drop < keys.length && await overBudget()) {
         for (const key of keys.slice(drop, drop + 20)) await cache.delete(key);
         drop += 20;
     }

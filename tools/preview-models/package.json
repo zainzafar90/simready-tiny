@@ -12,6 +12,6 @@
   },
   "dependencies": {
     "aws4fetch": "1.0.20",
-    "sharp": "0.34.4"
+    "sharp": "0.35.5"
   }
 }
