@@ -8,3 +8,4 @@ reports/
 .wrangler/
 public/vendor/
 tools/preview-models/manifest.json.gz
+__pycache__/
