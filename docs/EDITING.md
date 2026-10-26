@@ -5,14 +5,14 @@ Run `npm start` while editing. Refresh the browser after changes; the zero-depen
 | Change | Edit |
 | --- | --- |
 | Brand text / subtitle | `public/config.json` (`name`, `subtitle`) |
-| Page title, navigation, search bar and shell markup | `index.html`; saved/all-assets headings also in `src/app.js` |
+| Page title, navigation, search bar and shell markup | `index.html`; saved/all-assets headings in `src/app/page-render.js` |
 | Colors, spacing, typography, responsive rules | CSS custom properties and rules in `src/styles.css` |
 | Category mapping / aliases | `scripts/catalog-lib.mjs`, then `npm run catalog:sync` |
-| Search weights or typo behavior | `src/search-engine.js`, then add tests in `tests/search.test.mjs` |
-| Grid columns, overscan, cards | `src/virtual-grid.js` |
-| Full-screen preview, filmstrip, details, source actions | `src/detail.js` |
-| Collection validation / import merging | `src/collections.js` |
-| Collection dialogs and navigation state | `src/app.js` |
+| Search weights or typo behavior | `src/search/search-engine.js`, then add tests in `tests/search.test.mjs` |
+| Grid columns, overscan, cards | `src/gallery/virtual-grid.js` |
+| Full-screen preview, filmstrip, details, source actions | `src/preview/preview-dialog.js` |
+| Collection validation / import merging | `src/library/collections.js` |
+| Collection dialogs and navigation state | `src/app/collection-dialogs.js`, `src/app/app-store.js` |
 | Viewer texture/geometry caps | `tools/viewer/main.js`, then `npm run viewer:setup` |
 | Jev question schema / confidence filter | `scripts/jev-lib.mjs` |
 | Cloudflare app name | `wrangler.jsonc` |

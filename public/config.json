@@ -1,7 +1,10 @@
 {
-  "name": "Atlas",
-  "subtitle": "The SimReady library",
+  "name": "SimReady Tiny",
+  "subtitle": "Lightweight 3D previews",
   "dataset": "nvidia/simready-assets",
   "viewerUrl": "/vendor/usd/index.html",
-  "sourceUrl": "https://huggingface.co/datasets/nvidia/simready-assets"
+  "sourceUrl": "https://huggingface.co/datasets/nvidia/simready-assets",
+  "contactEmail": "zainzafar90@gmail.com",
+  "modelBaseUrl": "https://simready-models.zainzafar.net/",
+  "siteUrl": "https://simready.zainzafar.net/"
 }

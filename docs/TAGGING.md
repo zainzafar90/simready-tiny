@@ -63,11 +63,11 @@ Commit the reviewed overlay to your own repository if useful. Never commit `.env
 
 ## Optional local thumbnails
 
-The gallery otherwise loads source thumbnails directly. After verifying your redistribution rights, mirror thumbnails only:
+The gallery otherwise loads ~800 KB source PNGs directly. After verifying your redistribution rights, convert thumbnails to self-hosted WebP (512 px grid + 1024 px preview, ~35 KB per asset; needs `cwebp`, `brew install webp`):
 
 ```sh
 npm run catalog:thumbs -- --confirm-rights
 npm run build
 ```
 
-`--limit 20` can test a small subset. This avoids mirroring model data, but it does not grant any redistribution license. Check public asset-hosting limits and the deployment report when adding many local files.
+`--limit 20` tests a subset; `--dry-run` measures sizes without writing. Re-runs reuse existing files. This avoids mirroring model data, but it does not grant any redistribution license. Check public asset-hosting limits and the deployment report when adding many local files.

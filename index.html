@@ -4,63 +4,71 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="A quieter way to find 3D objects. Search NVIDIA SimReady assets, explore previews, and organize your own collections.">
-  <title>Atlas — 3D objects, thoughtfully organized</title>
+  <meta name="description" content="Browse 2,575 NVIDIA SimReady 3D models in your browser. Search instantly, preview each one in interactive 3D, and download the original USD packages.">
+  <link rel="canonical" href="%SITE_URL%">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SimReady Tiny">
+  <meta property="og:url" content="%SITE_URL%">
+  <meta property="og:title" content="SimReady Tiny — 2,575 SimReady 3D models in your browser">
+  <meta property="og:description" content="Search instantly, preview in interactive 3D, and download the original USD packages. Models by NVIDIA SimReady, CC BY 4.0.">
+  <meta property="og:image" content="%SITE_URL%og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="SimReady Tiny: a grid of 3D models including a forklift, banana, kettle, hard hat and toaster.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SimReady Tiny — 2,575 SimReady 3D models in your browser">
+  <meta name="twitter:description" content="Search instantly, preview in interactive 3D, and download the original USD packages. Models by NVIDIA SimReady, CC BY 4.0.">
+  <meta name="twitter:image" content="%SITE_URL%og.jpg">
+  <title>SimReady Tiny — 2,575 SimReady 3D models in your browser</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/src/styles.css">
-  <link rel="modulepreload" href="/src/utils.js">
+  <link rel="modulepreload" href="/src/app/app-store.js">
 </head>
 <body>
 <a class="skip-link" href="#search">Skip to search</a>
 <aside id="sidebar" class="sidebar" aria-label="Library navigation">
-  <a class="brand" href="/" aria-label="Atlas home">
+  <a class="brand" href="/" aria-label="SimReady Tiny home">
     <svg viewBox="0 0 32 32" width="29" height="29" aria-hidden="true"><path d="m16 2 12 7v14l-12 7L4 23V9zM4 9l12 7 12-7M16 16v14M10 5.5l12 7v7l-6 3.5-6-3.5v-7l6-3.5 6 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-    <span id="brand-name">Atlas</span><span class="brand-sub sr-only">The SimReady library</span>
+    <span id="brand-name">SimReady<span class="brand-tag">Tiny</span></span><span class="brand-sub sr-only">Lightweight 3D previews</span>
   </a>
   <div class="sidebar-content">
     <nav class="primary-nav" aria-label="Browse library">
       <button class="nav-item active" data-action="all" id="all-assets"><span data-icon="cube"></span><span>All assets</span><span class="count" id="all-count">—</span></button>
       <button class="nav-item" data-action="saved" id="saved-assets"><span data-icon="heart"></span><span>Saved</span><span class="count" id="saved-count">0</span></button>
     </nav>
-    <div class="nav-heading"><span>Categories</span><button class="small-icon" data-action="reset-category" title="Clear category" aria-label="Clear category filter"><span data-icon="reset"></span></button></div>
+    <div class="nav-heading"><span>Categories</span></div>
     <nav id="categories" aria-label="Asset categories"><div class="nav-loading">Loading your library…</div></nav>
     <div class="nav-heading collections-heading"><span>My collections</span><button class="small-icon" data-action="new-collection" title="New collection" aria-label="New collection"><span data-icon="plus"></span></button></div>
     <nav id="collections" aria-label="Your collections"></nav>
-    <button class="nav-item new-collection" data-action="new-collection"><span data-icon="folderPlus"></span><span>New collection</span></button>
-    <p id="collections-note" class="sidebar-hint">A place for your next project.</p>
   </div>
   <div class="sidebar-bottom">
-    <button class="nav-item" data-action="help"><span data-icon="info"></span><span>Help & shortcuts</span><kbd>?</kbd></button>
-    <div class="sidebar-foot"><span><span class="status-dot"></span>Local-first library</span><button class="small-icon" data-action="theme" aria-label="Switch to dark theme" title="Switch color theme" id="theme-button"><span data-icon="moon"></span></button></div>
+    <div class="sidebar-foot"><span class="library-actions"><button class="text-action" data-action="export" title="Download your saved objects and collections">Export</button><button class="text-action" data-action="import" title="Restore saved objects and collections">Import</button></span><button class="small-icon" data-action="theme" aria-label="Switch to dark theme" title="Switch color theme" id="theme-button"><span data-icon="moon"></span></button></div>
   </div>
 </aside>
 <button id="sidebar-shade" class="sidebar-shade" data-action="toggle-sidebar" aria-label="Close navigation" hidden></button>
 <div class="workspace">
+  <p class="notice-banner" role="note"><span class="notice-group"><span>3D models by <a href="https://huggingface.co/datasets/nvidia/simready-assets" target="_blank" rel="noopener noreferrer">NVIDIA SimReady</a> under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a></span><span class="notice-optional">Optimized here for faster browsing; originals unchanged</span></span><span class="notice-group"><span>Independent project, not affiliated with NVIDIA</span><a id="removal-link" hidden>Request removal</a></span></p>
   <header class="topbar">
     <button class="icon-btn filter-mobile" data-action="toggle-sidebar" aria-controls="sidebar" aria-expanded="false" aria-label="Open navigation"><span data-icon="menu"></span></button>
-    <div class="history-actions"><button class="icon-btn" id="nav-back" data-action="back" aria-label="Go back" title="Go back" disabled><span data-icon="arrowLeft"></span></button><button class="icon-btn" id="nav-forward" data-action="forward" aria-label="Go forward" title="Go forward" disabled><span data-icon="arrow"></span></button></div>
     <div class="search-wrap"><span data-icon="search"></span><label for="search" class="sr-only">Search assets</label><input id="search" type="search" autocomplete="off" spellcheck="false" placeholder="Search objects…" maxlength="200" aria-describedby="search-tip"><button class="search-clear small-icon" data-action="clear-query" aria-label="Clear search" hidden><span data-icon="close"></span></button><kbd class="search-shortcut">⌘ K</kbd></div>
     <p id="search-tip" class="sr-only">Search names, tags and categories. Supports typos, quoted phrases and minus terms.</p>
-    <div class="top-actions"><span class="source-label"><span class="status-dot"></span>NVIDIA SimReady</span><a class="button source-button" href="https://huggingface.co/datasets/nvidia/simready-assets" target="_blank" rel="noopener noreferrer"><span>Source library</span><span data-icon="external"></span></a></div>
+    <div class="top-actions"><a class="button source-button" href="https://huggingface.co/datasets/nvidia/simready-assets" target="_blank" rel="noopener noreferrer"><span>Source library</span><span data-icon="external"></span></a></div>
   </header>
   <main id="main" class="main">
-    <section class="page-heading"><div class="title-line"><h1 id="page-title">3D Objects</h1><span class="title-count" id="asset-total">—</span></div><button class="button collection-manage" id="collection-manage" data-action="manage-collection" hidden><span data-icon="more"></span><span>Edit collection</span></button><span id="page-description" class="page-description">Find your next building block.</span></section>
-    <section class="toolbar" aria-label="Search and display options">
-      <div class="browse-tabs" role="group" aria-label="Browse scope"><button id="tab-all" class="browse-tab active" data-action="all" aria-pressed="true">All objects</button><button id="tab-saved" class="browse-tab" data-action="saved" aria-pressed="false">Saved</button></div>
-      <div class="toolbar-options"><span class="results-meta" id="result-count" aria-live="polite">Loading…</span><button id="filter-toggle" class="button filter-toggle" data-action="toggle-filter-panel" aria-expanded="false" aria-controls="filter-panel"><span data-icon="filter"></span><span>Filters</span><span id="filter-count" class="filter-count" hidden></span></button><div class="view-switch" role="group" aria-label="View mode"><button class="icon-btn active" data-view="grid" aria-label="Grid view" aria-pressed="true"><span data-icon="grid"></span></button><button class="icon-btn" data-view="list" aria-label="List view" aria-pressed="false"><span data-icon="list"></span></button></div></div>
+    <section class="page-heading">
+      <div class="title-line"><h1 id="page-title">3D Objects</h1><span class="title-count" id="asset-total">—</span><button class="small-icon clear-category" id="clear-category" data-action="reset-category" aria-label="Clear category" title="Clear category" hidden><span data-icon="close"></span></button></div>
+      <button class="button collection-manage" id="collection-manage" data-action="manage-collection" hidden><span data-icon="more"></span><span>Edit collection</span></button>
+      <div class="heading-controls"><span class="sr-only" id="result-count" aria-live="polite">Loading…</span><label class="sort-select"><span class="sr-only">Sort by</span><select id="sort"><option value="relevance">Sort: Relevance</option><option value="name">Sort: Name A–Z</option><option value="size">Sort: Smallest first</option></select></label><div class="view-switch" role="group" aria-label="View mode"><button class="icon-btn active" data-view="grid" aria-label="Grid view" aria-pressed="true"><span data-icon="grid"></span></button><button class="icon-btn" data-view="list" aria-label="List view" aria-pressed="false"><span data-icon="list"></span></button></div></div>
+      <p id="page-description" class="page-description"><span>Simulation-ready 3D models from <a href="https://huggingface.co/datasets/nvidia/simready-assets" target="_blank" rel="noopener noreferrer">NVIDIA SimReady</a>.</span><span>Open any object to explore it in 3D or download the original package.</span></p>
     </section>
-    <section id="filter-panel" class="filter-panel" aria-label="Filter options" hidden><label>Format<select id="format"><option value="">All formats</option><option value="usd">USD</option><option value="usda">USDA</option><option value="usdc">USDC</option><option value="usdz">USDZ</option></select></label><label>Sort by<select id="sort"><option value="relevance">Relevance</option><option value="name">Name: A–Z</option><option value="size">Root layer size</option></select></label><button class="text-action" data-action="reset">Reset all</button></section>
-    <div class="active-filters" id="active-filters" hidden></div>
-    <div class="results-scroll" id="results-scroll" tabindex="-1"><div class="virtual-stage" id="asset-grid" role="list" aria-label="Assets" aria-busy="true"></div><div id="empty-state" class="empty-state" hidden></div></div>
-    <footer class="statusbar"><div><span id="catalog-status">Preparing your library…</span><button class="preview-notice" id="catalog-notice" data-action="help" hidden>Preview catalog <span data-icon="info"></span></button></div><span id="search-timing"></span><span class="keyboard-hint"><kbd>/</kbd> Search <span>·</span> <kbd>↵</kbd> Preview</span></footer>
+    <div class="results-scroll" id="results-scroll" tabindex="-1"><div class="virtual-stage" id="asset-grid" role="list" aria-label="Assets" aria-busy="true"><div class="skeleton-card" aria-hidden="true"><span class="asset-image is-loading"></span><span class="skeleton-line"></span><span class="skeleton-line short"></span></div><div class="skeleton-card" aria-hidden="true"><span class="asset-image is-loading"></span><span class="skeleton-line"></span><span class="skeleton-line short"></span></div><div class="skeleton-card" aria-hidden="true"><span class="asset-image is-loading"></span><span class="skeleton-line"></span><span class="skeleton-line short"></span></div><div class="skeleton-card" aria-hidden="true"><span class="asset-image is-loading"></span><span class="skeleton-line"></span><span class="skeleton-line short"></span></div><div class="skeleton-card" aria-hidden="true"><span class="asset-image is-loading"></span><span class="skeleton-line"></span><span class="skeleton-line short"></span></div><div class="skeleton-card" aria-hidden="true"><span class="asset-image is-loading"></span><span class="skeleton-line"></span><span class="skeleton-line short"></span></div><div class="skeleton-card" aria-hidden="true"><span class="asset-image is-loading"></span><span class="skeleton-line"></span><span class="skeleton-line short"></span></div><div class="skeleton-card" aria-hidden="true"><span class="asset-image is-loading"></span><span class="skeleton-line"></span><span class="skeleton-line short"></span></div><div class="skeleton-card" aria-hidden="true"><span class="asset-image is-loading"></span><span class="skeleton-line"></span><span class="skeleton-line short"></span></div><div class="skeleton-card" aria-hidden="true"><span class="asset-image is-loading"></span><span class="skeleton-line"></span><span class="skeleton-line short"></span></div></div><div id="empty-state" class="empty-state" hidden></div></div>
   </main>
 </div>
 <dialog id="asset-dialog" class="asset-dialog" aria-labelledby="detail-title"></dialog>
-<dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title"></dialog>
 <dialog id="collection-dialog" class="collection-dialog" aria-labelledby="collection-title"></dialog>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <input id="import-file" type="file" accept="application/json,.json" hidden>
-<noscript><div class="no-js">Atlas needs JavaScript for local search. <a href="https://huggingface.co/datasets/nvidia/simready-assets">Browse the source dataset.</a></div></noscript>
+<noscript><div class="no-js">SimReady Tiny needs JavaScript for local search. <a href="https://huggingface.co/datasets/nvidia/simready-assets">Browse the source dataset.</a></div></noscript>
 <script type="module" src="/src/app.js"></script>
 </body>
 </html>

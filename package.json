@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "Atlas Gallery \u2014 a static-first, image-led SimReady asset library.",
+  "description": "SimReady Tiny: browse NVIDIA SimReady 3D models in your browser.",
   "engines": {
     "node": ">=22.12"
   },

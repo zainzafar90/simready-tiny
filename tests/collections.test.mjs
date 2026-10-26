@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeCollections, createCollection, collectionName, mergeCollections } from '../src/collections.js';
-import { parseState, stateUrl } from '../src/utils.js';
+import { normalizeCollections, createCollection, collectionName, mergeCollections } from '../src/library/collections.js';
+import { parseState, stateUrl } from '../src/shared/url-state.js';
 
 test('Collection normalization rejects non-arrays', () => {
     for (const input of [null, {}, 'bad', 42]) assert.deepEqual(normalizeCollections(input), []);

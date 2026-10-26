@@ -7,3 +7,6 @@ reports/
 !.env.example
 .wrangler/
 public/vendor/
+tools/preview-models/manifest.json.gz
+__pycache__/
+r2.env

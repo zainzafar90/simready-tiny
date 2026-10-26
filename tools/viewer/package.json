@@ -1,6 +1,15 @@
 {
-  "name":"atlas-isolated-usd-viewer","private":true,"type":"module",
-  "scripts":{"build":"vite build"},
-  "dependencies":{"@huggingface/usd-web-viewer":"0.2.0","three":"0.180.0"},
-  "devDependencies":{"vite":"7.1.12"}
+  "name": "atlas-isolated-usd-viewer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@huggingface/usd-web-viewer": "0.2.0",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "vite": "7.3.7"
+  }
 }

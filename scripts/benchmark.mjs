@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 import { cpus, platform, arch } from 'node:os';
 import { resolve } from 'node:path';
-import { SearchEngine } from '../src/search-engine.js';
+import { SearchEngine } from '../src/search/search-engine.js';
 import { stressAssets } from '../tests/fixtures.mjs';
 import { ROOT, atomicJSON } from './io.mjs';
 const cases = ['banana', 'bana', 'bannana', 'storage cart', '"medical instrument"', 'green -paint', 'variant12', 'zqxwkjgfr', 'trolley', 'warehouse rack', 'red', ''];
