@@ -358,7 +358,8 @@ window.addEventListener('offline', () => toast('You are offline. Loaded search s
 fetch('/config.json').then(r => r.ok ? r.json() : {}).then(c => {
     config = { ...config, ...c };
     if (typeof c.name === 'string' && c.name.trim()) {
-        const name = c.name.trim().slice(0, 40); $('#brand-name').textContent = name;
+        const name = c.name.trim().slice(0, 40), [word, ...tag] = name.split(/\s+/);
+        $('#brand-name').innerHTML = e(word) + (tag.length ? `<span class="brand-tag">${e(tag.join(' '))}</span>` : '');
         $('.brand').setAttribute('aria-label', name + ' home'); document.title = document.title.replace(/^[^—]+—/, `${name} —`);
     }
     if (typeof c.subtitle === 'string') $('.brand-sub').textContent = c.subtitle.slice(0, 60);
