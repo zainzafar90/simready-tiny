@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SearchEngine, normalize, tokenize, distance, parseQuery } from '../src/search-engine.js';
+import { SearchEngine, normalize, tokenize, distance, parseQuery } from '../src/search/search-engine.js';
 import { previewCatalog } from '../scripts/preview-data.mjs';
 const catalog = previewCatalog(), engine = new SearchEngine(catalog.assets), names = result => result.ids.map(id => catalog.assets.find(a => a.id === id).name);
 test('normalization handles camel case, accents and separators', () => assert.equal(normalize('Crème_trashBin-01'), 'creme trash bin 01'));

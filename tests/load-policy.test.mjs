@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { autoLoadLimitBytes, shouldAutoLoad, loadTag, previewBytes } from '../src/load-policy.js';
+import { autoLoadLimitBytes, shouldAutoLoad, loadTag, previewBytes } from '../src/preview/load-policy.js';
 
 const MB = 1024 * 1024;
 const asset = size => ({ packageSizeBytes: size * MB });

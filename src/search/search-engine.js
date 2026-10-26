@@ -1,4 +1,4 @@
-/** Weighted inverted index. Pure JS, shared between worker, tests and benchmark. */
+/** Weighted inverted index shared by worker and tests. */
 export function normalize(value) {
     return String(value ?? '').replace(/([a-z\d])([A-Z])/g, '$1 $2').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }

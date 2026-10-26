@@ -51,7 +51,7 @@ export function normalizeCatalog(entries, revision, { now = new Date().toISOStri
             manifests.add(path.slice(0, -'/com.nvidia.simready.packaging.json'.length));
     }
     const candidates = new Map();
-    // Canonical previews pair with the layer of the same name, retaining variants.
+    /* previews pair with same-named layers */
     for (const path of files.keys()) {
         const match = path.match(/^(.*)\/\.thumbs\/(\d+)x(\d+)\/([^/]+\.(?:usd|usda|usdc|usdz))\.png$/i);
         if (!match)
@@ -65,7 +65,7 @@ export function normalizeCatalog(entries, revision, { now = new Date().toISOStri
         if (!candidates.has(usdPath) || score < candidates.get(usdPath).score)
             candidates.set(usdPath, { thumb: path, score });
     }
-    // Keep top-level simready layers even when they have no PNG preview.
+    /* keep top-level layers without previews */
     for (const path of files.keys())
         if (/^[^/]+\/simready_usd\/[^/]+\.(usd|usda|usdc|usdz)$/i.test(path) && !candidates.has(path))
             candidates.set(path, { thumb: null });

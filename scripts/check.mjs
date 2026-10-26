@@ -3,8 +3,10 @@ import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { ROOT } from './io.mjs';
 let files = 0, failed = 0;
-for (const dir of ['src', 'scripts', 'tests', 'tools/viewer'])
-    for (const name of await readdir(resolve(ROOT, dir))) {
+const sources = await readdir(resolve(ROOT, 'src'), { recursive: true });
+const listings = [['src', sources], ...await Promise.all(['scripts', 'tests', 'tools/viewer'].map(async dir => [dir, await readdir(resolve(ROOT, dir))]))];
+for (const [dir, names] of listings)
+    for (const name of names) {
         if (!/\.(js|mjs)$/.test(name))
             continue;
         const result = spawnSync(process.execPath, ['--check', resolve(ROOT, dir, name)], { encoding: 'utf8' });

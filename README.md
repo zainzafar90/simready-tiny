@@ -126,11 +126,13 @@ Start with [EDITING.md](docs/EDITING.md). Main files:
 ```text
 index.html                  Shell, labels, page layout
 src/styles.css              Theme tokens and responsive styling
-src/app.js                  UI state and interactions
-src/virtual-grid.js         Windowed gallery and keyboard navigation
-src/search-engine.js        Search weights, matching and ranking
-src/detail.js               Full-screen preview, filmstrip and viewer lifecycle
-src/collections.js          Collection normalization and merge rules
+src/app.js                  Startup only: wires the modules below
+src/app/                    Page state, rendering, events, dialogs, site config
+src/gallery/                Windowed gallery and keyboard navigation
+src/preview/                Preview dialog, 3D viewer lifecycle, load policy
+src/library/                Collections, saved-item import rules
+src/search/                 Search engine (weights, ranking) and its worker
+src/shared/                 HTML escaping, formatting, storage, URL state, icons
 scripts/catalog-lib.mjs     Categories, aliases, source normalization
 scripts/sync-catalog.mjs    Hugging Face catalog ingestion
 scripts/jev-lib.mjs         Jev question schema and review normalization

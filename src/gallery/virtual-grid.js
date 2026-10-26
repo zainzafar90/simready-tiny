@@ -1,7 +1,8 @@
-import { escapeHtml as e, safeUrl, formatBytes } from './utils.js';
-import { icon } from './icons.js';
-import { currentNetwork, loadTag, previewBytes } from './load-policy.js';
-/** Only visible cards + overscan are mounted. Existing image nodes are retained on scroll. */
+import { escapeHtml as e, safeUrl } from '../shared/html.js';
+import { formatBytes } from '../shared/format.js';
+import { icon } from '../shared/icons.js';
+import { currentNetwork, loadTag, previewBytes } from '../preview/load-policy.js';
+/** Mounts only visible cards plus overscan. */
 export class VirtualGrid {
     constructor(stage, scroll, onOpen) {
         this.stage = stage;

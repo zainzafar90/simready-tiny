@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { escapeHtml, safeUrl, formatBytes, parseState, stateUrl, validatedSaved } from '../src/utils.js';
+import { escapeHtml, safeUrl } from '../src/shared/html.js';
+import { formatBytes } from '../src/shared/format.js';
+import { parseState, stateUrl } from '../src/shared/url-state.js';
+import { validatedSaved } from '../src/library/saved-import.js';
 import { makeQuestions, normalizeJev } from '../scripts/jev-lib.mjs';
 test('HTML escape prevents markup injection', () => assert.equal(escapeHtml('<img onerror="bad">'), '&lt;img onerror=&quot;bad&quot;&gt;'));
 test('URL sanitizer rejects executable URLs and protocol-relative URLs', () => { for (const u of ['javascript:alert(1)', 'data:text/html,hi', '//evil.test', 'http://example.com'])

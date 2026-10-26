@@ -1,6 +1,8 @@
-import { escapeHtml as e, safeUrl, formatBytes, copyText } from './utils.js';
-import { icon } from './icons.js';
-import { createViewer, modelSources } from './detail-viewer.js';
+import { escapeHtml as e, safeUrl } from '../shared/html.js';
+import { formatBytes } from '../shared/format.js';
+import { copyText } from '../shared/browser-io.js';
+import { icon } from '../shared/icons.js';
+import { createViewer, modelSources } from './preview-viewer.js';
 import { shouldAutoLoad, previewBytes } from './load-policy.js';
 
 const AUTO_LOAD_DELAY_MS = 250;

@@ -47,8 +47,11 @@ export async function syncCatalog() {
     let catalog = normalizeCatalog(entries, revision);
     const enrichment = await readJSON(resolve(ROOT, 'tags.enrichment.json'), {});
     catalog = applyEnrichment(catalog, enrichment);
-    const previous = await currentCatalog().catch(() => null);
-    // Fail closed on unexpectedly incomplete snapshots; permit intentional changes explicitly.
+    const previous = await currentCatalog().catch(error => {
+        if (error.code === 'ENOENT') return null;
+        throw new Error(`Existing catalog is unreadable: ${error.message}`, { cause: error });
+    });
+    /* fail closed on incomplete snapshots */
     if (previous?.mode === 'snapshot' && catalog.assets.length < previous.assets.length * .85 && !flag('--allow-shrink'))
         throw new Error(`Catalog shrank from ${previous.assets.length} to ${catalog.assets.length}. Inspect .cache and retry with --allow-shrink only after review.`);
     const url = await writeCatalog(catalog);

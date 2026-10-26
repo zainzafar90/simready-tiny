@@ -1,4 +1,4 @@
-/** Local collection data, deliberately independent of UI and browser APIs. */
+/** Collection data, independent of UI and browser. */
 const MAX_COLLECTIONS = 200;
 const MAX_IDS = 100000;
 export function normalizeCollections(value) {

@@ -12,7 +12,7 @@ Copy these new source files/directories into the existing project:
 
 ```text
 index.html
-src/                         entire directory, including collections.js
+src/                         entire directory and its subfolders
 package.json
 scripts/build.mjs
 tests/

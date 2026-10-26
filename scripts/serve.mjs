@@ -82,7 +82,7 @@ export function createAppServer({ dist = false } = {}) {
             if (encoding)
                 body = await compress(path, info.mtimeMs, body, encoding);
             const headers = { 'Content-Type': type, 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': CSP, 'Content-Length': body.length, ...(encoding ? { 'Content-Encoding': encoding, Vary: 'Accept-Encoding' } : {}) };
-            // Viewer is an intentionally same-origin child frame.
+            /* viewer is a same-origin child frame */
             if (pathname.startsWith('/vendor/usd/'))
                 headers['Content-Security-Policy'] = CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'");
             res.writeHead(200, headers);

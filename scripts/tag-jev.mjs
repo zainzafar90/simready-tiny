@@ -40,7 +40,7 @@ else {
                 const response = await fetchWithRetry(imageUrl), bytes = Buffer.from(await response.arrayBuffer());
                 if (bytes.length > 4 * 1024 * 1024)
                     throw new Error('Image exceeds 4 MiB source limit');
-                // Jev currently rejects 256px images. Pad/resize to a supported 320px square.
+                /* Jev rejects 256px; pad to 320px */
                 const png = await sharp(bytes, { limitInputPixels: 16000000 }).rotate().resize(320, 320, { fit: 'contain', background: '#353335' }).png().toBuffer();
                 const ref = randomUUID();
                 body.state.thumbnail = ref;
