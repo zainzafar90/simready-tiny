@@ -1,49 +1,38 @@
-# Testing and acceptance
+# Testing
 
-## Dependency-free checks
-
-```sh
-npm run check
-npm test
-npm run build
-npm run bench
-```
-
-`check` runs Node syntax checks on JavaScript modules. `test` covers search, catalog and collection normalization, provenance-safe enrichment, malformed input, paths/URLs, pagination, retry behavior and the real local HTTP server. It does not install or execute the external USD package.
-
-`bench` uses explicitly synthetic catalog records. Do not treat its CPU results as network, browser paint or low-end mobile latency. `build` enforces a 32,768-byte gzip budget for core browse/search JS + CSS, excluding HTML, data, images and the optional viewer.
-
-## Browser checks
-
-The browser suite expects the bundled 15-item preview catalog and no installed viewer. Run it before full setup, or use a separate clean checkout of the archive for fixture tests. It intentionally tests the missing-viewer fallback, not successful remote rendering.
+## Fast checks (no installs)
 
 ```sh
-python3 -m pip install playwright
-python3 -m playwright install chromium
-npm start
-# In another terminal:
-npm run test:browser
+npm run check   # syntax-checks every module in src/, scripts/, tests/, tools/viewer
+npm test        # Node unit tests
+npm run build   # also enforces the 32 KiB gzip budget for core JS + CSS
+npm run bench   # search CPU timings on synthetic catalogs
 ```
 
-To use a system browser, set `CHROMIUM_EXECUTABLE=/path/to/chromium`. The script writes screenshots and `reports/browser.json`.
+The unit tests cover search ranking and parsing, catalog normalization, tag merging, collections and imports, URL state and escaping, the load policy, viewer error handling and model sources, the dev server (paths, headers, compression), security headers and CSP, and site-config rendering. The converter has its own suite: `cd tools/preview-models && npm test`.
 
-The supplied report was generated with:
+## Browser suite
+
+Requires Playwright: `python3 -m pip install playwright && python3 -m playwright install chromium`.
 
 ```sh
-npm run test:browser -- --in-memory
+npm run test:browser:memory           # in-memory harness, 39 checks
+npm start                              # then, in another terminal:
+npm run test:browser                   # real server, 35 checks
 ```
 
-The authoring environment blocks browser URL navigation and outbound package/data requests. The in-memory harness runs actual application source and a real Web Worker in Chromium, but substitutes network, module loading, location/history, storage, clipboard and image delivery. It verifies DOM behavior, modal focus, keyboard controls, filtering, saved state, collection create/rename/delete, membership editing, backups, navigation, 320px previews and virtualization. It is **not** a substitute for an HTTP-origin deployed E2E test or actual localStorage durability checks.
+Both modes use the 15-object fixture in `tests/fixtures/` (catalog and thumbnails), so results don't depend on the live catalog.
 
-## Required online acceptance before public launch
+- **In-memory mode** loads the real modules into a blank page, with network, history, storage and clipboard mocked. `tests/browser_harness.py` resolves each module's imports itself. It includes the clipboard and export/import checks.
+- **Real-server mode** runs against `npm start` (or `--url`) and serves the fixture through request routing. It hides the viewer, so the missing-viewer fallback is tested consistently.
 
-- Run full setup and inspect the complete importer report. Spot-check variants, packages without thumbnails and categories against the source.
-- Inspect Network: the USD viewer, WASM and model files should not load during ordinary browsing. They should load only after activating interactive 3D.
-- Open representative food, industrial and medical assets. Confirm geometry, referenced textures and source warnings; large or unsupported assets should fail with a useful message and a working source link.
-- Close/stop previews repeatedly and inspect browser memory/GPU behavior. The iframe is removed, but device-specific memory reclamation must be measured.
-- Reload a saved collection; import/export it between browsers. Verify share URLs and browser back/forward from a fresh URL, not only inside the harness.
-- Run narrow-phone and slower-device profiling: network transfer, first usable search, long tasks and interaction latency. No Lighthouse score or real-device INP has been measured in this archive.
-- Validate headers, CORS, MIME types, missing paths and cache refresh on the actual Cloudflare URL. Check thumbnails with source delivery blocked.
-- Enable a small Jev batch only with your key and spending approval; inspect output/usage before scaling. API credentials never belong in a browser bundle.
+Scenarios are grouped in `browser_checks.py` (gallery, search, preview), `browser_collection_checks.py` and `browser_layout_checks.py` (keyboard, history, mobile, a 2,575-record stress test). Screenshots and `reports/browser.json` are written to `reports/`.
 
-Read `STATUS.md` for the exact verification boundary.
+## Live and performance checks
+
+These hit real networks and are not part of the automatic suite:
+
+- `python3 tools/perf/mobile-perf.py` emulates a phone on 4G, fast 3G and slow 3G, and measures the gallery and 3D loads (Hugging Face vs mirror). Start `node scripts/serve.mjs --port 4175` first.
+- `python3 tools/demo/record-walkthrough.py` records a user-style walkthrough to `reports/video/walkthrough.mp4`.
+
+Before a public launch, also open a few large and small models on the deployed domain, try a slow connection, and confirm headers with `curl -I`.

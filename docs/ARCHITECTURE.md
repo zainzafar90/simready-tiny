@@ -1,64 +1,74 @@
 # Architecture
 
-## Data path
+SimReady Tiny is a static site. There is no application server, database or search API. Everything below runs in the browser or as an offline script.
+
+## Data flow
 
 ```text
-Hugging Face file listing (build/import time)
-    -> pinned revision + resumable paginated traversal
-    -> filename taxonomy + matching thumbnail/root-layer pairs
-    -> approved enrichment overlay
-    -> immutable catalog.<hash>.json + small mutable manifest
+Offline (scripts/)
+  Hugging Face file listing (pinned commit)
+    -> catalog-lib: entry layers, thumbnails, labels, package sizes
+    -> optional reviewed tag overlay (tags.enrichment.json)
+    -> public/data/catalog.<hash>.json + public/catalog-manifest.json
+  mirror-thumbs: source PNG -> public/thumbs/<hash>-512.webp / -1024.webp
+  tools/preview-models: model files -> 1024px textures -> R2 mirror
 
 Browser
-    -> static HTML / CSS / native modules
-    -> search worker fetches manifest + catalog
-    -> weighted inverted index
-    -> ranked IDs and facet counts
-    -> virtualized grid / list
-
-Open preview (auto-loads up to a network-based limit: 250 MB fast, 100 MB slow 4G/phones, 25 MB 3G, 5–10 MB 2G, never with Data Saver)
-    -> isolated same-origin iframe, image shown until ready
-    -> separately bundled Hugging Face USD viewer
-    -> USD / layers / textures from the R2 mirror (1024px textures),
-       falling back to the original Hugging Face host
-    -> revision-pinned files cached by public/sw.js
-    -> iframe removed on close or navigation
+  index.html + src/app.js
+    -> search worker loads manifest + catalog, builds the index
+    -> virtual grid renders visible cards only
+    -> preview dialog (lazy module) -> viewer iframe (/vendor/usd/)
+         -> model files from the R2 mirror, else Hugging Face
+         -> public/sw.js caches revision-pinned files
 ```
 
-The main thread receives catalog records for rendering, while the worker keeps the index and performs matching. At this catalog size, that duplication is an acceptable simplicity/memory tradeoff; benchmark actual data before scaling far beyond 10,000 records. There is no server search API.
+## Source layout
 
-## Search contract
+| Folder | Responsibility |
+|---|---|
+| `src/app/` | Page state (`app-store`), rendering, search client, events, collection dialogs, preview controller, sidebar, site config |
+| `src/gallery/` | `VirtualGrid`: windowed rendering, keyboard navigation, skeletons, size tags |
+| `src/preview/` | Preview dialog (markup, menus, controls), viewer lifecycle, network-aware load policy |
+| `src/library/` | Collection normalization/merge rules and saved-item import validation |
+| `src/search/` | Search engine and its Web Worker |
+| `src/shared/` | HTML escaping and URL checks, formatting, storage, URL state, icons |
 
-Fields are weighted: object name 9, curated aliases 5, tags 4, category 2, description/path 1. Multiple positive terms intersect. Only the final positive term expands as a prefix; typo fallback runs only when exact/prefix matches for that term are absent. Common plurals normalize through a small dictionary and heuristic. This is lexical search, not general semantic understanding or a complete language stemmer.
+`src/app.js` only wires these together. Every module is a native ES module; there is no bundler for the app itself.
 
-Quoted phrases use normalized contiguous text. Negative single terms match normalized tokens, not substrings. Facets reflect the other filters before the selected category is applied. Search is debounced by 25 ms and request IDs prevent late results from replacing newer ones.
+## Search
+
+The worker owns the index; the main thread gets ranked IDs and category counts. Fields are weighted: name 9, aliases 5, tags 4, category 2, description and path 1. Multiple terms intersect. The last term also matches as a prefix, and typo matching only runs when a term has no exact or prefix match. Quoted phrases and `-exclusions` are supported. Input is debounced by 25 ms, and request IDs drop late results.
 
 ## Rendering
 
-`VirtualGrid` renders visible rows plus one overscan row on either side. It retains existing nodes rather than recreating every card on scroll. ResizeObserver recalculates columns; requestAnimationFrame schedules painting. Lazy images have explicit aspect ratios. Unchanged results retain scroll and focus when dialogs close.
+`VirtualGrid` mounts only the visible rows plus one row above and below, and keeps existing card nodes while scrolling. Columns come from the container width (minimum 200px on desktop, 140px on phones). Thumbnails are 512px WebP; the preview uses the 1024px version. Native `<dialog>` handles modal focus.
 
-The page reserves a scroll region for the gallery. Desktop controls stay visible; mobile hides the sidebar in a keyboard-managed drawer. Native `<dialog>` provides modal focus containment. Focus styles, reduced-motion handling and visible labels are present; this is not an independent accessibility certification.
+## 3D preview
 
-## Catalog ingestion
+Opening an object shows its 1024px image immediately, then loads the model in a same-origin iframe (`tools/viewer`, built on `@huggingface/usd-web-viewer`):
 
-The importer resolves the branch to a commit, paginates the HF tree endpoint, saves a checkpoint after every page and retries transient errors with backoff. File sizes come from tree metadata, not guesses. Thumbnails match their named USD root layer; top-level `simready_usd` layers remain discoverable without images. Variants are retained as separate asset IDs.
+1. **Load policy** (`src/preview/load-policy.js`): models auto-load up to a limit that depends on the connection — 250 MB on fast links, 100 MB on phones, 25 MB on 3G, 5–10 MB on 2G or under 1 Mbit/s, and never with Data Saver. Sizes within 10% of the limit still auto-load. Bigger models show **Load 3D · size**, and their cards get a **Large** tag. Sizes are the real mirrored preview sizes from the catalog (`previewSizeBytes`).
+2. **Sources** (`modelSources`): the mirror at `modelBaseUrl` first, then the original Hugging Face URL.
+3. **Recovery**: a network-type failure retries once; if the mirror still fails, the viewer switches to Hugging Face; only then does the user see an error with **Retry**.
+4. **Isolation**: the viewer only accepts the configured mirror (with a 40-character commit path) or the NVIDIA dataset on Hugging Face. Parent and viewer talk via `postMessage`, checked against the exact iframe window and origin. Closing or switching previews removes the iframe.
 
-Non-object layers and unmatched structures are reported. The importer does not pretend it can index every possible USD packaging layout: inspect `reports/catalog-sync.json`. Empty catalogs, duplicate IDs, invalid paths and unexpectedly shrinking existing snapshots are rejected. Source updates are manual and reviewable, not silent background jobs.
+## Caching
 
-Asset IDs are source paths, so saved collections can survive pinned revision changes. If an upstream asset moves or disappears, it is omitted from the active collection view. Export backups before major updates.
+- App files (`/app/<hash>/`) and catalogs (`/data/catalog.<hash>.json`) are content-addressed and cached for a year. HTML, `config.json` and the manifest are revalidated on every load.
+- `public/sw.js` caches model files whose URL contains a pinned dataset commit, so reopening a model costs no network. It skips files over 512 MB and keeps the cache under 2 GB or half of the browser quota, whichever is smaller.
+- R2 objects are served with `Cache-Control: immutable`.
 
-## Security and privacy
+## Local data
 
-Only public static files are served. No browser API keys, analytics, account system, uploads endpoint or server-side URL proxy exists. Import scripts validate paths and pagination origins. Text is escaped before HTML insertion; the search field is length-limited. User collections contain IDs, not executable markup.
+Saved items, collections and preferences live in `localStorage` under `atlas.saved`, `atlas.collections`, `atlas.view`, `atlas.theme` and `atlas.details`. The key names predate the rename and are kept so existing libraries keep working. Storage is per origin; **Export / Import** moves a library between browsers. Imports are capped at 5 MB, IDs are filtered against the catalog, and collections are rebuilt field by field.
 
-The build emits CSP, MIME-sniffing and referrer protections. The viewer can make remote HTTPS requests for referenced resources; the official viewer validates/parses them. Treat untrusted models as untrusted input and keep its dependency patched. Root viewer URLs are limited to this NVIDIA dataset. Security headers and resource caps reduce risk but are not a security audit.
+## Security model
 
-Favorites and named collections live in localStorage, not a cloud account. Existing `atlas.saved`, `atlas.theme` and `atlas.view` keys remain compatible. `atlas.collections` stores bounded `{ id, name, ids }` records. Collection filters reuse the worker's saved-ID restriction rather than introducing a second search path. Unknown collection memberships are retained through catalog refreshes but omitted from visible results. Asset share links exclude local collection and saved filters.
-
-The full-screen preview keeps an at-most-nine-item window of nearby result thumbnails. Next/previous replaces the current preview history entry; closing goes back to the gallery entry and retains the virtualized scroll position. Downloading a full package is an explicit source link or shell command, not a misleading standalone USD download.
-
-Favorites live in localStorage, not a cloud account. Search works after the catalog loads even if connectivity drops, but this is not a service-worker-backed offline application. Refreshing offline and uncached remote images/models may fail.
+- All dynamic HTML is escaped (`src/shared/html.js`); links and images go through `safeUrl`, which only allows https or same-origin paths.
+- The CSP is generated from `config.json` (`scripts/serve.mjs`): scripts from the site only, plus `wasm-unsafe-eval` for the viewer's WASM; network and images only from the site, the mirror and Hugging Face; no plugins, forms or external framing. Deployed headers add HSTS and COOP.
+- No API keys ship to the browser. Tooling secrets (R2, Jev) come from environment variables or `.env` files that are git-ignored.
+- The offline converter validates every dataset path, sniffs image content before decoding, and caps download sizes while streaming.
 
 ## Deliberate omissions
 
-No accounts, billing, model conversion service, vector database, runtime model inference, cross-device sync service or physics simulation. USD physics/material/license fields are not extracted in this version; they remain available only in the original package. This keeps the initial app small and avoids presenting invented facts as verified metadata.
+No accounts, analytics, server-side search, model conversion service or physics simulation. Physical properties, materials and licenses are not extracted from USD files; the preview links to the original package for those.

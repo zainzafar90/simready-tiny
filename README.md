@@ -95,7 +95,7 @@ On four 4-vCPU machines, the full run took about two hours. Storage costs about 
 | `npm start` | Dev server with Cloudflare-like compression and the production CSP |
 | `npm run build` / `npm run preview` | Build `dist/` / serve it |
 | `npm test` | 88 Node unit tests: search, catalog, collections, load policy, security headers |
-| `npm run test:browser:memory` | 39 Playwright checks against the real UI (needs `pip install playwright`) |
+| `npm run test:browser:memory` | 39 Playwright checks against the real UI on a fixed fixture (needs `pip install playwright`) |
 | `npm run check` | Syntax check of every module |
 | `npm run catalog:sync` | Re-index the dataset from Hugging Face (metadata only) |
 | `npm run catalog:thumbs -- --confirm-rights` | Convert source thumbnails to WebP |
@@ -118,7 +118,7 @@ tools/              viewer build, model mirror, perf, demo and OG tooling
 tests/              Node unit tests and the Playwright browser suite
 ```
 
-More detail: [architecture](docs/ARCHITECTURE.md), [editing guide](docs/EDITING.md), [testing](docs/TESTING.md), [deployment](docs/DEPLOYMENT.md), [changelog](CHANGELOG.md).
+More detail: [architecture](docs/ARCHITECTURE.md), [deployment](docs/DEPLOYMENT.md), [editing guide](docs/EDITING.md), [testing](docs/TESTING.md), [performance](docs/PERFORMANCE.md), [tagging](docs/TAGGING.md), [changelog](CHANGELOG.md).
 
 ## Credits and license
 

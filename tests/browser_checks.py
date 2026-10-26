@@ -18,7 +18,7 @@ class Session:
         print('PASS', name, flush=True)
 
     async def results(self, text, page=None):
-        await (page or self.page).wait_for_function('(text) => document.querySelector("#result-count").textContent === text', arg=text)
+        await (page or self.page).wait_for_function('(text) => document.querySelector("#result-count")?.textContent === text', arg=text)
 
     async def shot(self, name):
         # Focus rings from scripted input are not part of the visual baseline.
@@ -93,13 +93,14 @@ async def check_preview_navigation(s):
     s.passed('Full-screen preview shows details on desktop and nine thumbnails')
     await s.shot('detail.png')
     await page.locator('[data-detail="next"]').click()
-    await page.wait_for_function('document.querySelector("#detail-title").textContent !== "Banana"')
+    await page.wait_for_function('document.querySelector("#detail-title")?.textContent !== "Banana"')
+    await page.wait_for_function('document.querySelector("#asset-dialog").contains(document.activeElement)')
     await page.keyboard.press('ArrowLeft')
-    await page.wait_for_function('document.querySelector("#detail-title").textContent === "Banana"')
+    await page.wait_for_function('document.querySelector("#detail-title")?.textContent === "Banana"')
     assert await page.locator('[data-detail="previous"]').is_disabled()
     s.passed('Next/previous buttons and arrow keys follow the current results')
     await page.locator('.film-thumb').nth(2).click()
-    await page.wait_for_function('document.querySelector("#detail-title").textContent === "CT injection system"')
+    await page.wait_for_function('document.querySelector("#detail-title")?.textContent === "CT injection system"')
     await page.keyboard.press('s')
     assert await page.locator('[data-detail="save"]').get_attribute('aria-pressed') == 'true'
     s.passed('Thumbnail navigation and save shortcut work')
@@ -136,7 +137,7 @@ async def check_preview_panels(s):
 
 async def check_preview_viewer_and_close(s):
     page = s.page
-    await page.wait_for_function('document.querySelector("#viewer-status").textContent.includes("not installed")')
+    await page.wait_for_function('document.querySelector("#viewer-status")?.textContent.includes("not installed")')
     assert await page.locator('iframe').count() == 0
     assert await page.locator('#detail-preview img').count() == 1
     assert 'Retry' in await page.locator('[data-detail="viewer"]').inner_text()

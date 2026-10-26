@@ -1,52 +1,60 @@
-# Cloudflare deployment
+# Deployment
 
-The project publishes static HTML, JavaScript, CSS, metadata and any local thumbnails. It does not require an application Worker, D1, KV, R2, a server process, or an AI key to search. Large models remain on Hugging Face.
+The site is static files on Cloudflare Workers static assets. The optional model mirror is a Cloudflare R2 bucket.
 
-## Before publishing
+## 1. Configure
 
-1. Run `npm run setup` on a network-connected machine. Inspect `reports/catalog-sync.json` and resolve unexpected omissions or counts.
-2. Review source/package licenses and service usage terms. Replace the screenshot-derived preview thumbnails before public redistribution.
-3. Run `npm run check`, `npm test`, `npm run build` and the live acceptance checks in `TESTING.md`.
-4. Test direct thumbnail loading and several interactive USD previews from the deployment origin. CORS, redirects, model dependencies and browser GPU limits can differ from a local run.
+Set your values in `public/config.json` (see the README's configuration table): `siteUrl`, optional `modelBaseUrl` and `contactEmail`, and the brand `name`.
 
-## Deploy
+In `wrangler.jsonc`, set `name` to your Worker name and either point `routes` at your own custom domain (its zone must be in your Cloudflare account) or remove `routes` to use a `workers.dev` URL. `assets.html_handling` stays `"none"`, so `/vendor/usd/index.html` is served as is instead of being redirected.
 
-Change `name` in `wrangler.jsonc` to the application name you want in your account, then:
+## 2. Build and deploy
 
 ```sh
+npm run viewer:setup   # once, and after changing tools/viewer
+npm run check && npm test
+npx wrangler login
 npm run deploy
 ```
 
-The script builds `dist/` and invokes `npx --yes wrangler@4 deploy`. Wrangler may request authentication. No account, billing change or deployment was performed by the authoring process. Keep account tokens in your shell/CI secret store, never in public files.
+`npm run deploy` runs the build and then `wrangler deploy`. It refuses to publish the small preview catalog or a build without the viewer, unless you pass `--allow-preview`.
 
-The convenience command resolves the latest Wrangler major-4 release. For repeatable CI, pin and lock an approved exact Wrangler version in your own repository. Likewise, commit the optional viewer's generated lockfile after a successful installation; only its direct versions could be pinned in this offline archive.
+The build writes `dist/`:
 
-## Deliberate preview deployment
+- `index.html` with `%SITE_URL%` filled in from `config.json`
+- `app/<hash>/…`: every source module, content-hashed
+- `data/catalog.<hash>.json`: only the catalog the manifest points to
+- `_headers`: CSP, HSTS, COOP, referrer and permissions policies, and cache rules
+- `thumbs/`, `vendor/usd/`, `sw.js`, `og.jpg`, `config.json`
+
+The build fails if the core JavaScript and CSS exceed 32 KiB gzip.
+
+## 3. Model mirror (optional)
+
+Without a mirror, models load from Hugging Face. To host the smaller copies yourself:
+
+1. Create a bucket: `npx wrangler r2 bucket create <bucket>`.
+2. Create an R2 **Account API token** with *Object Read & Write* on that bucket, and keep the Access Key ID and Secret Access Key outside the repo (for example `~/.config/<name>/r2.env`, mode 600).
+3. Build the manifest and run the converter. See the README's "model mirror" section, and run shards in parallel on several machines.
+4. Write real preview sizes into the catalog: `node tools/preview-models/src/catalog-sizes.mjs`.
+5. Edit the origins in `tools/preview-models/r2-cors.json`, then `npx wrangler r2 bucket cors set <bucket> --file tools/preview-models/r2-cors.json`.
+6. Connect a custom domain to the bucket (dashboard, or `wrangler r2 bucket domain add`). Use a first-level subdomain, so Cloudflare's free certificate covers it.
+7. Set `modelBaseUrl` in `config.json` to that domain, then rebuild and deploy.
+
+The full run is about 245 GB downloaded and 43 GB stored (about $0.50 a month on R2; downloads are free).
+
+## Updating the catalog
 
 ```sh
-npm run deploy -- --allow-preview
+npm run catalog:sync                          # metadata only; resumable
+npm run catalog:thumbs -- --confirm-rights    # new thumbnails only
+npm test && npm run deploy
 ```
 
-This explicitly bypasses both the full-catalog and viewer-bundle checks. It is for reviewing the included demo, not for silently publishing a supposedly complete collection. The preview notice remains visible.
+The sync pins a dataset commit and refuses to shrink an existing catalog by more than 15% unless you pass `--allow-shrink`. A new commit also needs a new mirror run, because mirror paths include the commit.
 
-## Updates and caching
+## Limits and dependencies
 
-```sh
-npm run catalog:sync
-npm test
-npm run deploy
-```
-
-HTML, config and catalog manifest are revalidated. App files and catalog files have content-hashed paths with immutable cache headers. `_headers` also supplies security/referrer controls. A rebuild is required for changed tags, source or data; editing `public/` alone does not update a deployed site.
-
-The importer pins one commit and stores `.cache/tree-<commit>.json`. Retry a failed command to resume. `--fresh` re-fetches a listing; `--revision <commit>` reproduces a previous snapshot. `--allow-shrink` is an explicit override only after inspecting why a catalog shrank more than the default safety threshold.
-
-## Operational limits
-
-Cloudflare's static asset quotas and per-file limits still apply, especially to the optional WASM bundle. Inspect the built output before publishing. Do not work around quotas by assuming the entire 472 GB collection belongs in the static upload. Use separate model hosting if you later decide to mirror it.
-
-Hugging Face serving, rate limits, CORS and upstream availability remain dependencies. A mirror or proxy is not automatically authorized by public access. R2 is not required by this app; adding it changes cost, licensing and cache architecture and should be a separate decision.
-
-## Costs
-
-No model storage is allocated by the supplied deployment, and no API inference runs on search. This is not a promise of a permanently zero bill: check current Cloudflare plan limits, optional domains, source delivery terms and any manually enabled Jev usage. Official references are in `SOURCES.md`.
+- Cloudflare static assets allow at most 20,000 files and 25 MiB per file. This build has about 5,200 files; the largest is the 2.3 MB viewer WASM.
+- Hugging Face serves the fallback models and the source links; anonymous traffic is rate limited per IP (about 3,000 file requests per 5 minutes).
+- If the zone has Cloudflare bot protection on, Cloudflare injects an inline script that the CSP blocks. It's harmless and only shows as a console warning.

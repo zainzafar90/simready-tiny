@@ -146,7 +146,9 @@ export function openDetail(dialog, asset, options) {
     return ({ keepOpen = false } = {}) => {
         clearTimeout(timer);
         viewer?.dispose();
-        dialog.onclick = null; dialog.oncancel = null; dialog.onkeydown = null;
+        dialog.onclick = null; dialog.onkeydown = null;
+        /* block native close while the next preview renders */
+        dialog.oncancel = keepOpen ? event => event.preventDefault() : null;
         if (!keepOpen && dialog.open) dialog.close();
         dialog.replaceChildren();
     };

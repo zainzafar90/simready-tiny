@@ -33,7 +33,7 @@ npm run tag:jev -- --images --limit 10          # dry run
 npm run tag:jev -- --images --limit 10 --execute
 ```
 
-This installs Sharp only for the CLI, not the browser. Source URLs need to be reachable. No API calls were executed in the authoring environment, so validate a small batch and its charges before increasing the limit. Retried POST requests can incur additional charges. Visual suggestions are aids, never proof of real material or physical properties.
+This installs Sharp only for the CLI, not the browser. Source URLs need to be reachable. Validate a small batch and its charges before increasing the limit; retried POST requests can incur additional charges. Visual suggestions are aids, never proof of real material or physical properties.
 
 ## Review and publish
 
@@ -61,13 +61,13 @@ The merger accepts only tags and aliases from approved entries. Source URLs, ide
 
 Commit the reviewed overlay to your own repository if useful. Never commit `.env`.
 
-## Optional local thumbnails
+## Thumbnails
 
-The gallery otherwise loads ~800 KB source PNGs directly. After verifying your redistribution rights, convert thumbnails to self-hosted WebP (512 px grid + 1024 px preview, ~35 KB per asset; needs `cwebp`, `brew install webp`):
+The repository already ships WebP thumbnails for the current catalog. After a catalog sync, convert any new ones (512px grid + 1024px preview, ~32 KB per asset instead of ~836 KB PNG; needs `cwebp`, e.g. `brew install webp`):
 
 ```sh
 npm run catalog:thumbs -- --confirm-rights
 npm run build
 ```
 
-`--limit 20` tests a subset; `--dry-run` measures sizes without writing. Re-runs reuse existing files. This avoids mirroring model data, but it does not grant any redistribution license. Check public asset-hosting limits and the deployment report when adding many local files.
+`--limit 20` tests a subset, `--dry-run` measures sizes without writing, and re-runs reuse existing files. The `--confirm-rights` flag is a deliberate reminder: the thumbnails are CC BY 4.0 and need NVIDIA attribution wherever you publish them.

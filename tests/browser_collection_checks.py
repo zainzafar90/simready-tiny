@@ -28,7 +28,7 @@ async def check_collections(s):
     await page.locator('#collection-manage').click()
     await page.locator('#collection-name').fill('Kitchen scene')
     await page.locator('#collection-form button[type="submit"]').click()
-    await page.wait_for_function('document.querySelector("#page-title").textContent === "Kitchen scene"')
+    await page.wait_for_function('document.querySelector("#page-title")?.textContent === "Kitchen scene"')
     s.passed('Renaming a collection updates sidebar and gallery')
 
 

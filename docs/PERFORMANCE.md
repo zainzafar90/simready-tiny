@@ -1,36 +1,55 @@
-# Performance report — Gallery edition
+# Performance
 
-Measured on this implementation, not a claim of globally fastest or production performance.
+Measured on 2026-10-26. Re-run with the commands at the end.
 
-Core browse/search JavaScript + CSS: **23,314 bytes (22.8 KiB) gzip**, measured per file at level 9. The build enforces a **32,768-byte (32 KiB) budget**. This excludes HTML, catalog JSON, images, the lazy detail module and the optional USD viewer. The full-screen detail module is 4,872 bytes gzip and loads only when an object is opened.
+## Page weight
 
-| Synthetic records | Index construction | Search p50 | Search p95 | Search p99 |
-| --- | --- | --- | --- | --- |
-| 2,575 | 103.641 ms | 0.166 ms | 0.678 ms | 0.982 ms |
-| 10,000 | 310.649 ms | 0.574 ms | 2.961 ms | 3.801 ms |
+| Part | Size (gzip) | When it loads |
+|---|---:|---|
+| Core JS + CSS (`src/` except the preview) | 27.5 KiB | Every page (32 KiB build budget) |
+| Preview modules | 7.5 KiB | When an object is opened |
+| Catalog (2,575 objects) | ~210 KiB (Brotli) | Once; cached forever by hash |
+| Thumbnail | ~4 KB (512px) / ~28 KB (1024px) | Per visible card / per preview |
+| 3D viewer | 0.5 MB JS + 2.3 MB WASM | First 3D preview; cached forever |
 
-Environment: v22.16.0, linux x64, INTEL(R) XEON(R) PLATINUM 8573C. Each size uses 1,200 measured queries after warm-up. These are Node CPU timings, excluding the 25 ms debounce, worker messaging, network, parsing, layout and painting. Sub-millisecond CPU search does not mean sub-millisecond visible response.
+Thumbnails were ~836 KB PNGs before they were converted to WebP.
 
-The Chromium stress check mounted **16 gallery cards for 2,575 records** at 1440 × 1000. Deep scrolling stayed under the test's 32-card limit. The full-screen result strip has at most **nine thumbnails**, even when browsing thousands of results.
+## Search (CPU, Apple M4 Pro, Node 22)
 
-The actual UI and real search worker were exercised in an in-memory harness with mocked network, module loading, clipboard, history and storage because the authoring browser blocks URL navigation. These are not deployed E2E, Lighthouse, INP or memory-leak certifications. Separate Node HTTP checks exercise the actual production static server and content-addressed imports; see `reports/production-smoke.json`.
+| Synthetic records | Build index | p50 | p95 | p99 |
+|---:|---:|---:|---:|---:|
+| 2,575 | 35 ms | 0.08 ms | 0.21 ms | 0.29 ms |
+| 10,000 | 89 ms | 0.24 ms | 1.11 ms | 1.39 ms |
+
+These are CPU timings only: no debounce, worker messaging or painting.
+
+## Gallery on emulated phones (Pixel 7, CPU slowed 4×)
+
+| Connection | First paint | Search ready | First images | Transferred |
+|---|---:|---:|---:|---:|
+| 4G | 0.2 s | 0.8 s | 1.1 s | 0.29 MB |
+| Fast 3G (1.6 Mbit/s) | 0.5 s | 2.3 s | 2.7 s | 0.29 MB |
+| Slow 3G (0.4 Mbit/s) | 1.2 s | 7.4 s | 8.9 s | 0.27 MB |
+
+The gallery mounts at most ~20 cards for 2,575 results and stays bounded while scrolling.
+
+## 3D models: mirror vs Hugging Face
+
+The mirror keeps every model file but caps textures at 1024px: **233 GB → 43 GB (81% smaller)**, median model 13% of its original size. Only 14 models still exceed 250 MB, down from 578.
+
+| Model | Hugging Face | Mirror |
+|---|---:|---:|
+| Wall socket (63 MB original) | 17.8 s, 43 requests | 9.9 s, 18 requests |
+| Car fender (35 MB original) | 32.9 s, 35 requests | 10.8 s, 12 requests |
+| Same model, second open | — | ~2.3 s (service-worker cache) |
+
+On an emulated phone, the socket went from 55 s to 7 s on 4G, and from about 5.5 minutes to 33 s on fast 3G. These are single runs with software WebGL, so real devices with a GPU render faster; compare the ratios, not the absolute times.
 
 ## Reproduce
 
 ```sh
 npm run bench
-npm run build
-npm run test:browser:memory
+npm run build                         # prints the core gzip size
+node scripts/serve.mjs --port 4175 &
+python3 tools/perf/mobile-perf.py     # writes reports/perf/mobile-perf.json
 ```
-
-Playwright and Chromium are separate test prerequisites. For real-origin browser testing, start `npm start` and run `npm run test:browser`; see `TESTING.md`.
-
-## Design choices
-
-No core framework runtime, font downloads, model inference, server search API, or application dependency install. The worker owns the search index. Only visible cards and one overscan row per side mount. Existing card/image nodes are retained while scrolling. Preview navigation is bounded. A 3D viewer is neither imported nor mounted until explicitly requested, and its isolated iframe is removed when stopped, closed, or replaced.
-
-Static app/catalog files have content-addressed names. Colors and spacing are CSS variables. Collection filtering reuses the existing worker rather than adding a second index.
-
-## Remaining measurements
-
-Profile the fully imported catalog on a low-end phone and a throttled connection. Measure first usable search, input-to-paint latency, image waterfalls and real viewer memory. Use those results to decide whether to mirror thumbnails, pre-serialize the index or split catalogs. No best-possible or production latency guarantee is implied.

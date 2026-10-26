@@ -3,6 +3,7 @@ import base64, json, re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+FIXTURES = ROOT / 'tests' / 'fixtures'
 
 IMPORT = re.compile(r'^import\s+(?:\{([^}]*)\}\s+from\s+)?[\'"]([^\'"]+)[\'"];[ \t]*\n?', re.M)
 DYNAMIC = re.compile(r'import\(\s*[\'"]([^\'"]+)[\'"]\s*\)')
@@ -57,7 +58,7 @@ async def memory_mount(page, catalog, stress=False):
     html=html.replace('</head>','<style>'+(ROOT/'src/styles.css').read_text()+'</style></head>')
     await page.set_content(html)
     used={a.get('thumbnailUrl') for a in catalog['assets']}|{'/thumbs/food_produce_banana_m01.webp'}
-    image_map={f'/thumbs/{f.name}':'data:image/webp;base64,'+base64.b64encode(f.read_bytes()).decode() for f in (ROOT/'public/thumbs').glob('*.webp') if f'/thumbs/{f.name}' in used}
+    image_map={f'/thumbs/{f.name}':'data:image/webp;base64,'+base64.b64encode(f.read_bytes()).decode() for f in (FIXTURES/'thumbs').glob('*.webp') if f'/thumbs/{f.name}' in used}
     await page.evaluate('''({catalog,images,config})=>{
       window.__atlasModules={}; window.__catalog=catalog;window.__images=images;
       window.__atlasLocation={href:'http://atlas.test/',origin:'http://atlas.test',pathname:'/',reload:()=>{}};

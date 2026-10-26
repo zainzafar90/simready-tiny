@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build"
+    "build": "vite build && node copy-licenses.mjs"
   },
   "dependencies": {
     "@huggingface/usd-web-viewer": "0.2.0",

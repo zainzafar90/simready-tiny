@@ -4,20 +4,23 @@ Run `npm start` while editing. Refresh the browser after changes; the zero-depen
 
 | Change | Edit |
 | --- | --- |
-| Brand text / subtitle | `public/config.json` (`name`, `subtitle`) |
+| Brand, site URL, model mirror, contact email | `public/config.json` |
 | Page title, navigation, search bar and shell markup | `index.html`; saved/all-assets headings in `src/app/page-render.js` |
 | Colors, spacing, typography, responsive rules | CSS custom properties and rules in `src/styles.css` |
 | Category mapping / aliases | `scripts/catalog-lib.mjs`, then `npm run catalog:sync` |
 | Search weights or typo behavior | `src/search/search-engine.js`, then add tests in `tests/search.test.mjs` |
 | Grid columns, overscan, cards | `src/gallery/virtual-grid.js` |
-| Full-screen preview, filmstrip, details, source actions | `src/preview/preview-dialog.js` |
+| Preview markup, menus and actions | `src/preview/preview-markup.js`, `preview-menus.js`, `preview-dialog.js` |
+| Auto-load limits and the **Large** tag | `src/preview/load-policy.js` |
+| Viewer retry and fallback | `src/preview/preview-viewer.js` |
 | Collection validation / import merging | `src/library/collections.js` |
 | Collection dialogs and navigation state | `src/app/collection-dialogs.js`, `src/app/app-store.js` |
-| Viewer texture/geometry caps | `tools/viewer/main.js`, then `npm run viewer:setup` |
+| Viewer texture/geometry caps, allowed model hosts | `tools/viewer/main.js`, then `npm run viewer:setup` |
+| Security headers and CSP | `scripts/serve.mjs` (CSP), `scripts/build.mjs` (`_headers`) |
 | Jev question schema / confidence filter | `scripts/jev-lib.mjs` |
 | Cloudflare app name | `wrangler.jsonc` |
 
-`public/config.json` is intentionally public; never put a key or token in it. The `dataset` field documents the source; it is not a generic switch for arbitrary datasets. Supporting another source requires changing importer/schema/viewer allowlists together.
+`public/config.json` is public; never put a key or token in it. The `dataset` field documents the source; it is not a switch for other datasets. Supporting another source means changing the importer, schema and viewer allowlist together.
 
 ## Add manual discovery tags
 
@@ -36,4 +39,6 @@ npm run build
 npm run bench
 ```
 
-For UI changes, follow `TESTING.md`. Recheck narrow mobile screens, keyboard focus, saved collection imports and large-catalog scrolling, not just the first screen. Never edit `dist/` as the source of truth.
+For UI changes, also run the browser suite (see `TESTING.md`) and check a narrow phone width, keyboard focus and dark mode. Never edit `dist/` directly; it is rebuilt from `src/` and `public/`.
+
+Code style: small single-purpose functions, files under 200 lines, domain-named modules in their folder, explicit error handling, and short `/* */` comments only where the code would otherwise mislead.
