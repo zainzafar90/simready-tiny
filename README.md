@@ -10,7 +10,12 @@
   <a href="https://simready.zainzafar.net"><b>simready.zainzafar.net</b></a>
 </p>
 
-![SimReady Tiny gallery](docs/assets/screenshot.jpg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/how-it-got-tiny-dark.png">
+  <img src="docs/assets/how-it-got-tiny-light.png" alt="81% smaller 3D mirror (245 GB to 45 GB), up to 3x faster 3D loads, 27 KB app code, 0.2 ms search. Textures capped at 1024px, converted on four machines, hosted on Cloudflare R2.">
+</picture>
+
+Numbers and how to reproduce them: [Performance](docs/PERFORMANCE.md).
 
 ## Features
 
@@ -21,6 +26,8 @@
 - **Light and dark mode**, keyboard navigation and a mobile layout, with a ~27 KB core.
 
 Every preview links to the original package on [Hugging Face](https://huggingface.co/datasets/nvidia/simready-assets).
+
+![SimReady Tiny gallery](docs/assets/screenshot.jpg)
 
 ## Quick start
 
