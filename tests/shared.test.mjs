@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { escapeHtml, safeUrl } from '../src/shared/html.js';
+import { formatBytes } from '../src/shared/format.js';
+import { parseState, stateUrl } from '../src/shared/url-state.js';
+import { validatedSaved } from '../src/library/saved-import.js';
+import { makeQuestions, normalizeJev } from '../scripts/jev-lib.mjs';
+test('HTML escape covers all five special characters', () => assert.equal(escapeHtml(`<a title="x" alt='y'>&`), '&lt;a title=&quot;x&quot; alt=&#39;y&#39;&gt;&amp;'));
+test('URL sanitizer rejects executable URLs and protocol-relative URLs', () => { for (const u of ['javascript:alert(1)', 'data:text/html,hi', '//evil.test', 'http://example.com'])
+    assert.equal(safeUrl(u, true), ''); });
+test('URL sanitizer allows verified HTTPS and local thumbnails', () => { assert.equal(safeUrl('/thumbs/a.webp', true), '/thumbs/a.webp'); assert.equal(safeUrl('https://huggingface.co/a'), 'https://huggingface.co/a'); });
+test('relative URLs need opt-in and cannot smuggle backslashes', () => { assert.equal(safeUrl('/thumbs/a.webp'), ''); assert.equal(safeUrl('/\\evil.test/a.png', true), ''); });
+test('format size handles unknown, zero and large values', () => { assert.equal(formatBytes(undefined), 'Not indexed'); assert.equal(formatBytes(0), '0 B'); assert.equal(formatBytes(1024), '1.0 KB'); assert.equal(formatBytes(50 * 1024 * 1024), '50 MB'); assert.equal(formatBytes(1.5 * 1024 ** 3), '1.5 GB'); });
+test('URL state round trip', () => { const s = { query: 'fruit & veg', category: 'Food & produce', saved: true, sort: 'name', asset: 'a/root.usd', collection: '' }; assert.deepEqual(parseState(stateUrl(s)), s); });
+test('invalid query settings are normalized', () => { const s = parseState('/?sort=evil&format=exe&q=' + ('a'.repeat(500))); assert.equal(s.sort, 'relevance'); assert.equal('format' in s, false); assert.equal(s.query.length, 200); });
+test('URL state caps asset IDs and only accepts saved=1', () => { assert.equal(parseState('/?asset=' + 'a'.repeat(2000)).asset.length, 1500); assert.equal(parseState('/?saved=0').saved, false); });
+test('saved import removes unknown IDs and duplicates', () => assert.deepEqual(validatedSaved({ ids: ['a', 'a', 'b', 1] }, new Set(['a'])), ['a']));
+test('invalid or oversized imports are rejected', () => { assert.throws(() => validatedSaved({ data: 'bad' }, new Set())); assert.throws(() => validatedSaved({ ids: new Array(100001).fill('a') }, new Set(['a']))); });
+test('Jev textual mode does not ask for visual attributes', () => assert.deepEqual(Object.keys(makeQuestions()), ['category', 'scenario']));
+test('Jev low-confidence answers stay out of tags', () => { const q = makeQuestions({ images: true }); const n = normalizeJev({ color: { choice: 'yellow', confidence: .5 } }, q); assert.equal(n.tags.length, 0); assert.ok(n.reviewFields.includes('color')); });
+test('Jev output remains pending even above confidence threshold', () => { const q = makeQuestions({ images: true }); const n = normalizeJev({ color: { choice: 'yellow', confidence: .95 }, shape: { choice: 'unknown', confidence: 1 } }, q); assert.deepEqual(n.tags, ['yellow']); assert.equal(n.status, 'pending-review'); });

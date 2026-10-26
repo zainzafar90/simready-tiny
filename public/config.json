@@ -1,0 +1,9 @@
+{
+  "name": "SimReady Tiny",
+  "subtitle": "Lightweight 3D previews",
+  "dataset": "nvidia/simready-assets",
+  "viewerUrl": "/vendor/usd/",
+  "contactEmail": "zainzafar90@gmail.com",
+  "modelBaseUrl": "https://simready-models.zainzafar.net/",
+  "siteUrl": "https://simready.zainzafar.net/"
+}

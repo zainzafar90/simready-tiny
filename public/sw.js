@@ -1,0 +1,57 @@
+const CACHE = 'simready-models-v1';
+const MAX_ENTRIES = 3000;
+const MAX_BYTES = 2 * 1024 ** 3;
+const MAX_ENTRY_BYTES = 512 * 1024 ** 2;
+let maintenance = Promise.resolve();
+/* commit-pinned paths never change; CSP limits hosts */
+const PINNED = /^https:\/\/[^/]+\/(?:datasets\/nvidia\/simready-assets\/resolve\/)?[0-9a-f]{40}\//;
+
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', event => event.waitUntil((async () => {
+    for (const key of await caches.keys()) if (key !== CACHE) await caches.delete(key);
+    await self.clients.claim();
+})()));
+
+self.addEventListener('fetch', event => {
+    const { request } = event;
+    if (request.method !== 'GET' || request.headers.has('range') || !PINNED.test(request.url)) return;
+    event.respondWith(cacheFirst(request, event));
+});
+
+async function cacheFirst(request, event) {
+    const cache = await caches.open(CACHE);
+    const hit = await cache.match(request.url);
+    if (hit) return hit;
+    const response = await fetch(request);
+    if (cacheable(response)) event.waitUntil(store(cache, request.url, response.clone()));
+    return response;
+}
+
+function cacheable(response) {
+    const length = response.headers.get('content-length');
+    return response.ok && response.type === 'cors' && length !== null && Number(length) <= MAX_ENTRY_BYTES;
+}
+
+/** Writes and trims one at a time. */
+function store(cache, url, response) {
+    maintenance = maintenance.then(async () => {
+        await cache.put(url, response);
+        await trim(cache);
+    }).catch(error => console.warn('Model cache write skipped', url, error?.name));
+    return maintenance;
+}
+
+async function overBudget() {
+    const { usage = 0, quota = Infinity } = await navigator.storage?.estimate?.() ?? {};
+    return usage > Math.min(MAX_BYTES, quota * 0.5);
+}
+
+async function trim(cache) {
+    const keys = await cache.keys();
+    let drop = Math.max(0, keys.length - MAX_ENTRIES);
+    for (const key of keys.slice(0, drop)) await cache.delete(key);
+    while (drop < keys.length && await overBudget()) {
+        for (const key of keys.slice(drop, drop + 20)) await cache.delete(key);
+        drop += 20;
+    }
+}

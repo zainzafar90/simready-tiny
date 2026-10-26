@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.cache/
+reports/
+.env
+.env.*
+!.env.example
+.wrangler/
+public/vendor/
+tools/preview-models/manifest.json.gz
+__pycache__/
+r2.env
+*.tmp

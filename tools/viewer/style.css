@@ -1,0 +1,1 @@
+html,body,#viewer{margin:0;width:100%;height:100%;overflow:hidden;background:#353335}body{font:12px system-ui;color:#ddd}canvas{display:block}#message{position:absolute;bottom:14px;left:14px;right:14px;pointer-events:none;background:#111b;padding:8px 10px;border-radius:5px;line-height:1.6}#message[hidden]{display:none}
