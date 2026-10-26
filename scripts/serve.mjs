@@ -1,10 +1,10 @@
 import { createServer } from 'node:http';
 import { stat, readFile } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
 import { resolve, extname, sep } from 'node:path';
 import { brotliCompress, gzip, constants } from 'node:zlib';
 import { promisify } from 'node:util';
 import { ROOT, arg, flag, isMain } from './io.mjs';
+import { readSiteConfig, renderIndex } from './site-config.mjs';
 const UPSTREAM_HOSTS = ['https://huggingface.co', 'https://*.huggingface.co', 'https://*.hf.co'];
 
 /** Model hosts: configured mirror plus Hugging Face. */
@@ -18,7 +18,7 @@ export function contentSecurityPolicy(config) {
     return `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ${hosts}; connect-src 'self' ${hosts}; worker-src 'self' blob:; frame-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'`;
 }
 
-export const CSP = contentSecurityPolicy(JSON.parse(readFileSync(resolve(ROOT, 'public/config.json'), 'utf8')));
+export const CSP = contentSecurityPolicy(readSiteConfig());
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.wasm': 'application/wasm', '.txt': 'text/plain; charset=utf-8' };
 const COMPRESSIBLE = /^(text\/|application\/(json|wasm)|image\/svg)/;
 const brotli = promisify(brotliCompress), gzipAsync = promisify(gzip);
@@ -95,6 +95,7 @@ async function handle(req, res, dist) {
     if (!path) return send(res, 403);
     const target = await readTarget(path);
     if (!target) return send(res, 404, 'Not found');
+    if (!dist && path === resolve(ROOT, 'index.html')) target.body = Buffer.from(renderIndex(target.body.toString('utf8'), readSiteConfig()));
     const type = mime[extname(path)] || 'application/octet-stream';
     const encoding = pickEncoding(req.headers['accept-encoding'], type, target.body.length);
     const body = encoding ? await compress(path, target.info.mtimeMs, target.body, encoding) : target.body;

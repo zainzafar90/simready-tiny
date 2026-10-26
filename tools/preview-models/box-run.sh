@@ -1,11 +1,13 @@
 #!/bin/sh
-# usage: sh box-run.sh 1/4  (pauses the catalog worker meanwhile)
+# usage: sh box-run.sh 1/4
+# optional: PAUSE_PATTERN='regex' pauses matching processes meanwhile
 set -u
 cd "$(dirname "$0")"
-WORKER_PIDS=$(pgrep -f 'src/main[.]ts' | tr '\n' ' ')
-resume_worker() { [ -n "$WORKER_PIDS" ] && kill -CONT $WORKER_PIDS 2>/dev/null && echo "resumed catalog worker: $WORKER_PIDS"; }
-trap resume_worker EXIT
+PAUSED=""
+if [ -n "${PAUSE_PATTERN:-}" ]; then PAUSED=$(pgrep -f "$PAUSE_PATTERN" | grep -v "^$$\$" | tr '\n' ' '); fi
+resume_paused() { [ -n "$PAUSED" ] && kill -CONT $PAUSED 2>/dev/null && echo "resumed: $PAUSED"; }
+trap resume_paused EXIT
 trap 'exit 130' INT TERM
-[ -n "$WORKER_PIDS" ] && kill -STOP $WORKER_PIDS && echo "paused catalog worker: $WORKER_PIDS"
+[ -n "$PAUSED" ] && kill -STOP $PAUSED && echo "paused: $PAUSED"
 set -a; . ./r2.env; set +a
 node src/convert.mjs --shard "$1" --concurrency 6 --work-dir "$PWD/work"

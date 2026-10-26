@@ -13,6 +13,11 @@ TILES = ['Vehicle Forklift Blue', 'Banana', 'Kettle', 'Helmet Hard Hat', 'Applia
 LOGO = '<svg viewBox="0 0 32 32" width="44" height="44"><path d="m16 2 12 7v14l-12 7L4 23V9zM4 9l12 7 12-7M16 16v14M10 5.5l12 7v7l-6 3.5-6-3.5v-7l6-3.5 6 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
 
 
+def site_host():
+    config = json.loads((ROOT / 'public/config.json').read_text())
+    return config.get('siteUrl', '').split('//')[-1].strip('/') or 'SimReady Tiny'
+
+
 def load_catalog():
     manifest = json.loads((ROOT / 'public/catalog-manifest.json').read_text())
     return json.loads((ROOT / 'public' / manifest['url'].lstrip('/')).read_text())
@@ -43,7 +48,7 @@ def page(catalog):
     <div class="copy">
       <div class="brand">{LOGO}SimReady Tiny</div>
       <div class="tagline">{count} simulation-ready 3D models. Search instantly, preview in 3D, download the originals.</div>
-      <div class="meta"><b>simready.zainzafar.net</b><span>Models by NVIDIA SimReady · CC BY 4.0 · Not affiliated with NVIDIA</span></div>
+      <div class="meta"><b>{html.escape(site_host())}</b><span>Models by NVIDIA SimReady · CC BY 4.0 · Not affiliated with NVIDIA</span></div>
     </div>
     <div class="grid">{tiles}</div>
     </body></html>'''

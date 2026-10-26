@@ -5,6 +5,7 @@ import { gzipSync } from 'node:zlib';
 import { ROOT, currentCatalog, atomicJSON, isMain } from './io.mjs';
 import { validateCatalog } from './catalog-lib.mjs';
 import { CSP } from './serve.mjs';
+import { readSiteConfig, renderIndex } from './site-config.mjs';
 
 const CORE_BUDGET_BYTES = 32768;
 const LAZY_FILES = new Set(['preview/preview-dialog.js', 'preview/preview-viewer.js', 'preview/preview-markup.js', 'preview/preview-menus.js']);
@@ -59,7 +60,7 @@ async function writeApp(dist, sources) {
         await mkdir(dirname(target), { recursive: true });
         await writeFile(target, content);
     }
-    const html = (await readFile(resolve(ROOT, 'index.html'), 'utf8')).replaceAll('/src/', `/app/${hash}/`);
+    const html = renderIndex(await readFile(resolve(ROOT, 'index.html'), 'utf8'), readSiteConfig()).replaceAll('/src/', `/app/${hash}/`);
     await writeFile(resolve(dist, 'index.html'), html);
     return hash;
 }
