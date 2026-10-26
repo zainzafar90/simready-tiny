@@ -11,7 +11,7 @@ export async function build() {
     const dist = resolve(ROOT, 'dist');
     await rm(dist, { recursive: true, force: true });
     await mkdir(dist, { recursive: true });
-    await cp(resolve(ROOT, 'public'), dist, { recursive: true });
+    await cp(resolve(ROOT, 'public'), dist, { recursive: true, filter: source => !source.startsWith(resolve(ROOT, 'public/preview-models')) });
     const manifest = JSON.parse(await readFile(resolve(ROOT, 'public/catalog-manifest.json'), 'utf8'));
     // Publish only the referenced catalog, not obsolete intermediate enrichment snapshots.
     for (const file of await readdir(resolve(dist, 'data')))
@@ -29,9 +29,9 @@ export async function build() {
         await writeFile(resolve(app, files[i]), contents[i]);
     const html = (await readFile(resolve(ROOT, 'index.html'), 'utf8')).replaceAll('/src/', `/app/${hash}/`);
     await writeFile(resolve(dist, 'index.html'), html);
-    await writeFile(resolve(dist, '_headers'), `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n  Content-Security-Policy: ${CSP}\n/app/*\n  Cache-Control: public, max-age=31536000, immutable\n/data/*\n  Cache-Control: public, max-age=31536000, immutable\n/thumbs/*\n  Cache-Control: public, max-age=86400\n/vendor/usd/*\n  ! Content-Security-Policy\n  Content-Security-Policy: ${CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'")}\n/vendor/usd/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n/catalog-manifest.json\n  Cache-Control: no-cache\n/config.json\n  Cache-Control: no-cache\n/\n  Cache-Control: no-cache\n`);
+    await writeFile(resolve(dist, '_headers'), `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n  Content-Security-Policy: ${CSP}\n/app/*\n  Cache-Control: public, max-age=31536000, immutable\n/data/*\n  Cache-Control: public, max-age=31536000, immutable\n/thumbs/*\n  Cache-Control: public, max-age=2592000\n/sw.js\n  Cache-Control: no-cache\n/vendor/usd/*\n  ! Content-Security-Policy\n  Content-Security-Policy: ${CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'")}\n/vendor/usd/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n/catalog-manifest.json\n  Cache-Control: no-cache\n/config.json\n  Cache-Control: no-cache\n/\n  Cache-Control: no-cache\n`);
     const sizes = files.map((f, i) => ({ file: f, bytes: contents[i].length, gzip: gzipSync(contents[i], { level: 9 }).length }));
-    const coreNames = ['app.js', 'collections.js', 'utils.js', 'icons.js', 'virtual-grid.js', 'search.worker.js', 'search-engine.js', 'styles.css'];
+    const coreNames = ['app.js', 'collections.js', 'utils.js', 'icons.js', 'virtual-grid.js', 'load-policy.js', 'search.worker.js', 'search-engine.js', 'styles.css'];
     const coreGzip = sizes.filter(f => coreNames.includes(f.file)).reduce((n, f) => n + f.gzip, 0);
     const report = { builtAt: new Date().toISOString(), catalogMode: catalog.mode, assets: catalog.assets.length, appHash: hash, coreGzipBytes: coreGzip, coreBudgetBytes: 32768, files: sizes, viewerInstalled: await stat(resolve(dist, 'vendor/usd/index.html')).then(() => true).catch(() => false) };
     await atomicJSON(resolve(ROOT, 'reports/build.json'), report);

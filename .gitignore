@@ -7,3 +7,4 @@ reports/
 !.env.example
 .wrangler/
 public/vendor/
+public/preview-models/

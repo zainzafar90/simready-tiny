@@ -39,6 +39,6 @@ The browser fixture suite expects the 15-object preview and no installed viewer;
 
 `atlas.saved`, `atlas.theme` and `atlas.view` retain the same keys. Explicit old dark-mode preferences are honored. New named collections use `atlas.collections`.
 
-Storage belongs to the origin. `localhost:4173`, `127.0.0.1:4173`, another port and your deployed domain have separate libraries. Use **Help & shortcuts → Export library / Import library** to move your saved objects and collections across origins.
+Storage belongs to the origin. `localhost:4173`, `127.0.0.1:4173`, another port and your deployed domain have separate libraries. Use **Export / Import** at the bottom of the sidebar to move your saved objects and collections across origins.
 
 No automatic cloud sync, account migration or database is involved.

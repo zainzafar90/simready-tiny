@@ -16,11 +16,12 @@ Browser
     -> ranked IDs and facet counts
     -> virtualized grid / list
 
-Explicit "Explore in 3D"
-    -> isolated same-origin iframe
+Open preview (auto-loads up to a network-based limit: 250 MB fast, 100 MB slow 4G/phones, 25 MB 3G, 5–10 MB 2G, never with Data Saver)
+    -> isolated same-origin iframe, image shown until ready
     -> separately bundled Hugging Face USD viewer
     -> USD / layers / textures from original host
-    -> iframe removed on stop or dialog close
+    -> revision-pinned files cached by public/sw.js
+    -> iframe removed on close or navigation
 ```
 
 The main thread receives catalog records for rendering, while the worker keeps the index and performs matching. At this catalog size, that duplication is an acceptable simplicity/memory tradeoff; benchmark actual data before scaling far beyond 10,000 records. There is no server search API.

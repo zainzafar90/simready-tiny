@@ -1,5 +1,6 @@
 import { escapeHtml as e, safeUrl, formatBytes } from './utils.js';
 import { icon } from './icons.js';
+import { currentNetwork, loadTag } from './load-policy.js';
 /** Only visible cards + overscan are mounted. Existing image nodes are retained on scroll. */
 export class VirtualGrid {
     constructor(stage, scroll, onOpen) {
@@ -15,9 +16,13 @@ export class VirtualGrid {
         this.resize.observe(scroll);
         scroll.addEventListener('scroll', () => this.schedule(), { passive: true });
         stage.addEventListener('keydown', event => this.navigate(event));
+        stage.addEventListener('load', event => {
+            if (event.target instanceof HTMLImageElement) event.target.parentElement?.classList.remove('is-loading');
+        }, true);
         stage.addEventListener('error', event => {
             if (event.target instanceof HTMLImageElement) {
                 const host = event.target.parentElement;
+                host.classList.remove('is-loading');
                 event.target.remove();
                 const fallback = document.createElement('span');
                 fallback.className = 'missing-preview';
@@ -27,6 +32,7 @@ export class VirtualGrid {
         }, true);
     }
     set(items, saved, view = this.view) {
+        this.network = currentNetwork();
         const unchanged = view === this.view && items.length === this.items.length && items.every((a, i) => a.id === this.items[i].id);
         if (unchanged) {
             this.items = items;
@@ -65,7 +71,7 @@ export class VirtualGrid {
     layout() {
         this.width = this.stage.clientWidth;
         this.gap = this.view === 'list' ? 8 : (this.width < 500 ? 12 : 18);
-        const min = this.width < 500 ? 140 : 248;
+        const min = this.width < 500 ? 140 : 180;
         this.cols = this.view === 'list' ? 1 : Math.max(1, Math.floor((this.width + this.gap) / (min + this.gap)));
         this.cardWidth = (this.width - this.gap * (this.cols - 1)) / this.cols;
         this.cardHeight = this.view === 'list' ? 75 : Math.round(this.cardWidth) + 62;
@@ -108,13 +114,14 @@ export class VirtualGrid {
     }
     card(a, i) {
         const on = this.saved.has(a.id), url = safeUrl(a.thumbnailUrl, true);
+        const tag = loadTag(a, this.network, formatBytes);
         const node = document.createElement('article');
         node.className = `asset-card ${this.view === 'list' ? 'list' : ''}`;
         node.dataset.index = String(i);
         node.setAttribute('role', 'listitem');
         node.setAttribute('aria-posinset', String(i + 1));
         node.setAttribute('aria-setsize', String(this.items.length));
-        node.innerHTML = `<button class="asset-open" data-open="${e(a.id)}" aria-label="Preview ${e(a.name)}"><span class="asset-image">${url ? `<img src="${e(url)}" alt="" loading="${i < this.cols ? 'eager' : 'lazy'}" decoding="async" width="256" height="256" draggable="false" referrerpolicy="no-referrer">` : `<span class="missing-preview">${icon('cube', 30)}No preview</span>`}<span class="format-chip">${e((a.fileType || 'USD').toUpperCase())}</span></span><span class="asset-caption"><span class="asset-name" title="${e(a.name)}">${e(a.name)}</span><span class="asset-subline"><span class="asset-category">${e(a.category)}</span><span>${this.view === 'list' ? e(formatBytes(a.usdSizeBytes)) : ''}</span></span></span></button><button class="save-btn ${on ? 'is-saved' : ''}" data-save="${e(a.id)}" aria-label="${on ? 'Unsave' : 'Save'} ${e(a.name)}" aria-pressed="${on}">${icon('heart', 16)}</button>`;
+        node.innerHTML = `<button class="asset-open" data-open="${e(a.id)}" aria-label="Preview ${e(a.name)}"><span class="asset-image${url ? ' is-loading' : ''}">${url ? `<img src="${e(url)}" alt="" loading="${i < this.cols ? 'eager' : 'lazy'}" decoding="async" width="256" height="256" draggable="false" referrerpolicy="no-referrer">` : `<span class="missing-preview">${icon('cube', 30)}No preview</span>`}</span><span class="asset-caption"><span class="asset-name" title="${e(a.name)}">${e(a.name)}</span><span class="asset-subline"><span class="asset-category">${a.category === 'Other objects' ? '' : e(a.category)}</span><span class="asset-size">${Number.isFinite(a.packageSizeBytes) ? e(formatBytes(a.packageSizeBytes)) : ''}</span>${tag ? `<span class="load-tag" title="${e(tag.title)}">${e(tag.label)}</span>` : ''}</span></span></button><button class="save-btn ${on ? 'is-saved' : ''}" data-save="${e(a.id)}" aria-label="${on ? 'Unsave' : 'Save'} ${e(a.name)}" aria-pressed="${on}">${icon('heart', 16)}</button>`;
         return node;
     }
     navigate(event) {

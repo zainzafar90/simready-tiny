@@ -23,7 +23,8 @@ async def memory_mount(page, catalog, stress=False):
     html=re.sub(r'<script.*?</script>', '', html, flags=re.S)
     html=html.replace('</head>','<style>'+(ROOT/'src/styles.css').read_text()+'</style></head>')
     await page.set_content(html)
-    image_map={f'/thumbs/{f.name}':'data:image/webp;base64,'+base64.b64encode(f.read_bytes()).decode() for f in (ROOT/'public/thumbs').glob('*.webp')}
+    used={a.get('thumbnailUrl') for a in catalog['assets']}|{'/thumbs/food_produce_banana_m01.webp'}
+    image_map={f'/thumbs/{f.name}':'data:image/webp;base64,'+base64.b64encode(f.read_bytes()).decode() for f in (ROOT/'public/thumbs').glob('*.webp') if f'/thumbs/{f.name}' in used}
     await page.evaluate('''({catalog,images,config})=>{
       window.__atlasModules={}; window.__catalog=catalog;window.__images=images;
       window.__atlasLocation={href:'http://atlas.test/',origin:'http://atlas.test',pathname:'/',reload:()=>{}};
@@ -41,10 +42,12 @@ async def memory_mount(page, catalog, stress=False):
     await page.add_script_tag(content=module_source('utils','escapeHtml,safeUrl,formatBytes,readStorage,writeStorage,parseState,stateUrl,validatedSaved,downloadJSON,copyText'))
     await page.evaluate('''()=>{const u=window.__atlasModules.utils,original=u.safeUrl;u.safeUrl=(value,relative=false)=>window.__images[value]||original(value,relative);u.downloadJSON=(name,data)=>window.__exported={name,data};u.copyText=async text=>{window.__copied=text;};}''')
     await page.add_script_tag(content=module_source('icons','icon,categoryIcon'))
+    await page.add_script_tag(content=module_source('load-policy','AUTO_LOAD_LIMIT_BYTES,autoLoadLimitBytes,currentNetwork,shouldAutoLoad,loadTag'))
     await page.add_script_tag(content=module_source('collections','normalizeCollections,createCollection,collectionName,mergeCollections'))
-    imports="const {escapeHtml:e,safeUrl,formatBytes}=window.__atlasModules.utils;const {icon}=window.__atlasModules.icons;"
+    imports="const {escapeHtml:e,safeUrl,formatBytes}=window.__atlasModules.utils;const {icon}=window.__atlasModules.icons;const {currentNetwork,loadTag}=window.__atlasModules['load-policy'];"
     await page.add_script_tag(content=module_source('virtual-grid','VirtualGrid',imports))
-    imports="const {escapeHtml:e,safeUrl,formatBytes,copyText}=window.__atlasModules.utils;const {icon}=window.__atlasModules.icons;"
+    await page.add_script_tag(content=module_source('detail-viewer','createViewer,clampFraction,stageLabel'))
+    imports="const {escapeHtml:e,safeUrl,formatBytes,copyText}=window.__atlasModules.utils;const {icon}=window.__atlasModules.icons;const {createViewer}=window.__atlasModules['detail-viewer'];const {shouldAutoLoad}=window.__atlasModules['load-policy'];"
     await page.add_script_tag(content=module_source('detail','openDetail,packageCommand',imports))
     app=(ROOT/'src/app.js').read_text();app=re.sub(r'^import .*?;\s*','',app,flags=re.M)
     app=app.replace("import('./detail.js')","Promise.resolve(window.__atlasModules.detail)").replace('import.meta.url',"'http://atlas.test/app/app.js'")
@@ -57,10 +60,12 @@ async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--in-memory', action='store_true', help='Use explicit mocked I/O when browser navigation is restricted.')
     parser.add_argument('--url', default='http://127.0.0.1:4173')
+    parser.add_argument('--catalog', help='Catalog JSON for --in-memory runs; defaults to the published manifest.')
     args = parser.parse_args()
     REPORTS.mkdir(exist_ok=True)
     manifest = json.loads((ROOT / 'public/catalog-manifest.json').read_text())
-    catalog = json.loads((ROOT / 'public' / manifest['url'].lstrip('/')).read_text())
+    catalog_path = Path(args.catalog) if args.catalog else ROOT / 'public' / manifest['url'].lstrip('/')
+    catalog = json.loads(catalog_path.read_text())
     if len(catalog['assets']) != 15 or catalog['mode'] != 'preview':
         raise RuntimeError('This regression suite uses the bundled 15-object preview fixture. Run it before replacing the catalog, or use a separate checkout.')
     checks, errors = [], []
@@ -87,8 +92,9 @@ async def main():
         assert await page.locator('html').get_attribute('data-theme') == 'light'
         passed('Fresh install defaults to light even with a dark OS preference')
         assert await page.locator('#asset-grid .asset-card').count() <= 15
-        assert await page.locator('.asset-card').first.evaluate('el=>el.clientWidth') > 260
-        passed('Desktop layout uses large, four-column object cards')
+        assert await page.locator('.asset-card').first.evaluate('el=>el.clientWidth') >= 180
+        assert await page.evaluate("new Set([...document.querySelectorAll('.asset-card')].map(c=>c.style.left)).size") >= 5
+        passed('Desktop layout fits five or more object columns')
         assert await page.locator('iframe,canvas').count() == 0
         passed('Browsing does not create a WebGL canvas or 3D iframe')
         await shot(page, 'desktop.png')
@@ -108,15 +114,11 @@ async def main():
         passed('Category selection updates the title, counts, and results')
         await page.locator('[data-action="reset-category"]').first.click()
         await results(page, '15 assets')
-        await page.locator('#filter-toggle').click()
-        await page.locator('#format').select_option('usdz')
-        await results(page, '0 assets')
-        assert await page.locator('#filter-count').inner_text() == '1'
-        await page.locator('#format').select_option('')
         await page.locator('#sort').select_option('name')
         await results(page, '15 assets')
-        await page.locator('#filter-toggle').click()
-        passed('Collapsible format and sorting controls work')
+        assert await page.locator('#sort').input_value() == 'name'
+        await page.locator('#sort').select_option('relevance')
+        passed('Inline sort control works')
         await page.locator('[data-view="list"]').click()
         await page.wait_for_selector('.asset-card.list')
         await page.locator('[data-view="grid"]').click()
@@ -125,7 +127,7 @@ async def main():
         await page.locator('.asset-card').first.hover()
         await page.locator('[data-save]').first.click()
         assert await page.locator('#saved-count').inner_text() == '1'
-        await page.locator('#tab-saved').click()
+        await page.locator('#saved-assets').click()
         await results(page, '1 asset')
         await page.locator('#all-assets').click()
         await results(page, '15 assets')
@@ -133,10 +135,10 @@ async def main():
         await page.locator('[data-open]').first.click()
         await page.wait_for_selector('#asset-dialog[open]')
         assert await page.locator('#detail-title').inner_text() == 'Banana'
-        assert await page.locator('#asset-info').is_hidden()
+        assert await page.locator('#asset-info').is_visible()
         assert await page.locator('.film-thumb').count() == 9
         assert await page.locator('iframe,canvas').count() == 0
-        passed('Full-screen preview is image-first, with hidden details and nine thumbnails')
+        passed('Full-screen preview shows details on desktop and nine thumbnails')
         await shot(page, 'detail.png')
         await page.locator('[data-detail="next"]').click()
         await page.wait_for_function('document.querySelector("#detail-title").textContent !== "Banana"')
@@ -149,12 +151,15 @@ async def main():
         await page.keyboard.press('s')
         assert await page.locator('[data-detail="save"]').get_attribute('aria-pressed') == 'true'
         passed('Thumbnail navigation and save shortcut work')
+        assert await page.locator('#asset-info').is_visible()
+        await page.keyboard.press('i')
+        assert await page.locator('#asset-info').is_hidden()
         await page.keyboard.press('i')
         assert await page.locator('#asset-info').is_visible()
         await shot(page, 'detail-info.png')
         await page.locator('[data-detail="info-close"]').click()
         assert await page.locator('#asset-info').is_hidden()
-        passed('Technical metadata is available in a collapsible panel')
+        passed('Desktop opens details by default; the panel still collapses')
         await page.locator('[data-detail="download"]').click()
         assert await page.locator('#download-menu').is_visible()
         await page.keyboard.press('Escape')
@@ -162,6 +167,7 @@ async def main():
         assert await page.locator('#asset-dialog').evaluate('el=>el.open')
         passed('Escape dismisses download options before closing the preview')
         if args.in_memory:
+            await page.locator('[data-detail="more"]').click()
             await page.locator('[data-detail="share"]').click()
             shared = await page.evaluate('window.__copied')
             assert '?asset=' in shared and 'collection=' not in shared and 'saved=' not in shared
@@ -170,10 +176,11 @@ async def main():
             await page.locator('#download-menu [data-detail="command"]').click()
             assert '--include' in await page.evaluate('window.__copied')
             passed('Full-package download command can be copied')
-        await page.locator('[data-detail="viewer"]').click()
         await page.wait_for_function('document.querySelector("#viewer-status").textContent.includes("not installed")')
         assert await page.locator('iframe').count() == 0
-        passed('Uninstalled optional viewer reports recovery instructions, not a blank canvas')
+        assert await page.locator('#detail-preview img').count() == 1
+        assert 'Retry' in await page.locator('[data-detail="viewer"]').inner_text()
+        passed('3D loads automatically; a missing viewer keeps the image and offers Retry')
         await page.keyboard.press('Tab')
         assert await page.evaluate('document.querySelector("#asset-dialog").contains(document.activeElement)')
         passed('Native modal keeps keyboard focus inside the preview')
@@ -191,6 +198,7 @@ async def main():
         await page.locator('#all-assets').click()
         await results(page, '15 assets')
         await page.locator('[data-open]').first.click()
+        await page.locator('[data-detail="more"]').click()
         await page.locator('[data-detail="collection"]').click()
         await page.locator('.collection-choice input').check()
         await page.locator('#collection-picker button[type="submit"]').click()
@@ -207,11 +215,9 @@ async def main():
         await page.wait_for_function('document.querySelector("#page-title").textContent === "Kitchen scene"')
         passed('Renaming a collection updates sidebar and gallery')
         if args.in_memory:
-            await page.locator('[data-action="help"]').first.click()
             await page.locator('[data-action="export"]').click()
             exported = await page.evaluate('window.__exported.data')
             assert exported['version'] == 2 and exported['collections'][0]['name'] == 'Kitchen scene'
-            await page.locator('[data-action="close-help"]').click()
             passed('Library export includes saved IDs and named collections')
             imported = {'version': 2, 'dataset': 'nvidia/simready-assets', 'ids': [catalog['assets'][1]['id']], 'collections': [{'id': 'imported', 'name': 'Imported collection', 'ids': [catalog['assets'][1]['id']]}]}
             await page.locator('#import-file').set_input_files({'name':'atlas-library.json','mimeType':'application/json','buffer':json.dumps(imported).encode()})
@@ -238,13 +244,15 @@ async def main():
         passed('Optional dark mode keeps the same visual hierarchy')
         await page.locator('[data-category="Food & produce"]').click()
         await results(page, '3 assets')
-        await page.locator('#nav-back').click()
+        if args.in_memory: await page.evaluate('window.__atlasHistory.back()')
+        else: await page.go_back()
         await results(page, '15 assets')
-        await page.locator('#nav-forward').click()
+        if args.in_memory: await page.evaluate('window.__atlasHistory.forward()')
+        else: await page.go_forward()
         await results(page, '3 assets')
         await page.locator('#all-assets').click()
         await results(page, '15 assets')
-        passed('Header back and forward stay within app session history')
+        passed('Browser back and forward restore gallery state')
         for width in [1280, 800, 768, 390, 320]:
             await page.set_viewport_size({'width':width,'height':844})
             await page.wait_for_timeout(70)
@@ -266,11 +274,13 @@ async def main():
         await page.keyboard.press('Escape')
         assert not await page.locator('#sidebar').evaluate('el=>el.classList.contains("open")')
         passed('Escape closes the mobile navigation drawer')
-        await page.locator('#tab-all').click()
+        await page.locator('.filter-mobile').click()
+        await page.locator('#all-assets').click()
         await results(page, '15 assets')
         await page.locator('[data-open]').first.click()
         assert not await page.evaluate('document.documentElement.scrollWidth > innerWidth')
         await shot(page, 'mobile-detail.png')
+        await page.locator('[data-detail="more"]').click()
         await page.locator('[data-detail="info"]').click()
         assert await page.locator('#asset-info').is_visible()
         assert await page.locator('#asset-info').evaluate('el=>el.getBoundingClientRect().right<=innerWidth+1')

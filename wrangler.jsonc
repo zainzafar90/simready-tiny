@@ -2,8 +2,10 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "simready-atlas",
   "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "simready.zainzafar.net", "custom_domain": true }],
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "html_handling": "none"
   }
 }

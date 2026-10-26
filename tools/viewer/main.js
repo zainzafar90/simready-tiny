@@ -9,15 +9,17 @@ async function start() {
         const raw = new URLSearchParams(location.hash.slice(1)).get('model');
         const url = new URL(raw);
         // This embedded viewer is not a general-purpose arbitrary URL proxy.
-        if (url.protocol !== 'https:' || url.hostname !== 'huggingface.co' || !url.pathname.startsWith('/datasets/nvidia/simready-assets/resolve/'))
+        const upstream = url.protocol === 'https:' && url.hostname === 'huggingface.co' && url.pathname.startsWith('/datasets/nvidia/simready-assets/resolve/');
+        const selfHosted = url.origin === location.origin && url.pathname.startsWith('/preview-models/');
+        if (!upstream && !selfHosted)
             throw new Error('Unsupported model origin.');
         const compact = matchMedia('(max-width:600px)').matches;
-        viewer = createViewer(host, { background: '#353335', onContextLost: () => send('error', { message: 'GPU context lost. Close and reopen this preview.' }) });
+        viewer = createViewer(host, { background: '#373537', onContextLost: () => send('error', { message: 'GPU context lost. Close and reopen this preview.' }) });
         const { info } = await viewer.load(url.href, {
-            textures: 'preview', maxTextureSize: compact ? 512 : 1024, maxConcurrentFetches: 4,
+            textures: 'preview', maxTextureSize: compact ? 512 : 1024, maxConcurrentFetches: 8,
             maxLayerBytes: (compact ? 96 : 192) * 1024 * 1024, maxTextureBytes: (compact ? 48 : 96) * 1024 * 1024,
             maxLayers: 256, maxTriangles: compact ? 2000000 : 5000000, maxInstances: 20000, signal: controller.signal,
-            onProgress: progress => { message.textContent = `Loading ${progress.stage || 'model'}…`; send('progress', { fraction: progress.fraction }); }
+            onProgress: progress => { message.textContent = `Loading ${progress.stage || 'model'}…`; send('progress', { stage: progress.stage, fraction: progress.fraction }); }
         });
         message.hidden = true;
         send('ready');

@@ -129,8 +129,10 @@ export class SearchEngine {
                 continue;
             ids.push(i);
         }
-        if (sort === 'size')
-            ids.sort((i, j) => (this.assets[i].usdSizeBytes ?? Infinity) - (this.assets[j].usdSizeBytes ?? Infinity) || this.assets[i].name.localeCompare(this.assets[j].name));
+        if (sort === 'size') {
+            const size = a => a.packageSizeBytes ?? a.usdSizeBytes ?? Infinity;
+            ids.sort((i, j) => size(this.assets[i]) - size(this.assets[j]) || this.assets[i].name.localeCompare(this.assets[j].name));
+        }
         else if (sort === 'name' || (!q.positive.length && !q.phrases.length))
             ids.sort((i, j) => this.assets[i].name.localeCompare(this.assets[j].name) || this.assets[i].id.localeCompare(this.assets[j].id));
         else {

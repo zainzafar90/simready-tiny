@@ -47,8 +47,8 @@ The importer intentionally does not hardcode a count of 2,575. Source changes, v
 
 A narrow neutral sidebar, compact persistent search, generous square object cards, and a full-screen preview. The large promotional header has been removed. Technical information stays in an optional details panel.
 
-- **Browse:** worker search, categories, optional format/sort panel, grid/list, heart-to-save, and session back/forward.
-- **Preview:** nearby-results strip (at most nine thumbnails), previous/next buttons, arrow keys, share, source download options, and explicit **Explore in 3D**.
+- **Browse:** worker search, categories, inline sort, grid/list, heart-to-save, and browser back/forward.
+- **Preview:** nearby-results strip (at most nine thumbnails), previous/next buttons, arrow keys, share, source download options, and a 3D model that loads automatically within a network-aware size limit.
 - **Organize:** create/rename/delete named collections, edit membership from a preview, and export/import the whole local library. No account required.
 - **Mobile:** two columns, navigation drawer, compact preview toolbar, and details sheet. Light by default, with optional dark mode.
 
@@ -61,7 +61,7 @@ See [CHANGELOG.md](CHANGELOG.md) and [docs/UPGRADING.md](docs/UPGRADING.md) when
 | Area | Behavior |
 | --- | --- |
 | Search | Weighted local index in a Web Worker; prefixes, typo fallback, quoted phrases, exclusions, curated synonyms |
-| Browsing | Virtualized grid/list, category counts, format filters, name/root-layer-size sorting, lazy images |
+| Browsing | Virtualized grid/list, category counts, name/root-layer-size sorting, lazy images with skeletons |
 | Navigation | Keyboard shortcuts and arrow navigation, mobile filter drawer, focus-trapped details, shareable query and asset URLs |
 | Collection | Local saved assets + named collections, JSON export/import, cross-tab updates; no account required |
 | Details | Tags with provenance, file/package distinction, source links, full-package download command |

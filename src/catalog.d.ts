@@ -13,6 +13,7 @@ export interface Asset {
   packageSizeBytes?: number;
   thumbnailUrl: string | null;
   remoteThumbnailUrl?: string | null;
+  previewImageUrl?: string | null;
   thumbnailPath?: string | null;
   usdUrl: string;
   sourceUrl: string;

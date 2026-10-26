@@ -4,7 +4,7 @@ Prepared 2026-10-26 · Gallery edition 1.1.0. This is an implemented application
 
 ## Implemented and exercised here
 
-The light-first reference-inspired interface, full-screen image preview, nine-item filmstrip, named-collection create/rename/delete and membership editing, library import/export, virtualized grid/list, category and format filters, ranking/typo matching, save controls, import normalization, detail dialog, keyboard controls, mobile drawer, light/dark themes, share-state serialization and source/download command UI.
+The light-first reference-inspired interface, full-screen image preview, nine-item filmstrip, named-collection create/rename/delete and membership editing, library import/export, virtualized grid/list, category filters, ranking/typo matching, save controls, import normalization, detail dialog, keyboard controls, mobile drawer, light/dark themes, share-state serialization and source/download command UI.
 
 The core build, content hashes, gzip budget, Node static server, security-header generation, catalog fixture processing, pagination/retry mocks, source-preserving tag merges and Jev response normalization.
 

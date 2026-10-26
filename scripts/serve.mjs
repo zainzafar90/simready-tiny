@@ -1,9 +1,33 @@
 import { createServer } from 'node:http';
 import { stat, readFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
+import { brotliCompress, gzip, constants } from 'node:zlib';
+import { promisify } from 'node:util';
 import { ROOT, arg, flag, isMain } from './io.mjs';
 export const CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src 'self' https:; worker-src 'self' blob:; frame-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'";
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.wasm': 'application/wasm', '.txt': 'text/plain; charset=utf-8' };
+const COMPRESSIBLE = /^(text\/|application\/(json|wasm)|image\/svg)/;
+const brotli = promisify(brotliCompress), gzipAsync = promisify(gzip);
+const compressed = new Map();
+/* mirrors Cloudflare edge compression */
+export function pickEncoding(acceptEncoding = '', type = '', size = 0) {
+    if (size < 1024 || !COMPRESSIBLE.test(type)) return null;
+    const accepts = name => acceptEncoding.split(',').some(part => {
+        const [token, ...params] = part.trim().split(';');
+        return token.trim() === name && !params.some(p => /^\s*q=0(\.0+)?\s*$/.test(p));
+    });
+    if (accepts('br')) return 'br';
+    return accepts('gzip') ? 'gzip' : null;
+}
+async function compress(path, mtimeMs, body, encoding) {
+    const key = `${encoding}:${path}:${mtimeMs}`;
+    if (!compressed.has(key)) {
+        if (compressed.size > 200) compressed.clear();
+        const job = encoding === 'br' ? brotli(body, { params: { [constants.BROTLI_PARAM_QUALITY]: 5 } }) : gzipAsync(body, { level: 6 });
+        compressed.set(key, job.catch(error => { compressed.delete(key); throw error; }));
+    }
+    return compressed.get(key);
+}
 export function createAppServer({ dist = false } = {}) {
     return createServer(async (req, res) => {
         if (!['GET', 'HEAD'].includes(req.method)) {
@@ -41,9 +65,10 @@ export function createAppServer({ dist = false } = {}) {
                 res.end();
                 return;
             }
-            let body;
+            let body, info;
             try {
-                if (!(await stat(path)).isFile())
+                info = await stat(path);
+                if (!info.isFile())
                     throw new Error('not-file');
                 body = await readFile(path);
             }
@@ -52,7 +77,11 @@ export function createAppServer({ dist = false } = {}) {
                 res.end('Not found');
                 return;
             }
-            const headers = { 'Content-Type': mime[extname(path)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': CSP, 'Content-Length': body.length };
+            const type = mime[extname(path)] || 'application/octet-stream';
+            const encoding = pickEncoding(req.headers['accept-encoding'], type, body.length);
+            if (encoding)
+                body = await compress(path, info.mtimeMs, body, encoding);
+            const headers = { 'Content-Type': type, 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': CSP, 'Content-Length': body.length, ...(encoding ? { 'Content-Encoding': encoding, Vary: 'Accept-Encoding' } : {}) };
             // Viewer is an intentionally same-origin child frame.
             if (pathname.startsWith('/vendor/usd/'))
                 headers['Content-Security-Policy'] = CSP.replace("frame-ancestors 'none'", "frame-ancestors 'self'");

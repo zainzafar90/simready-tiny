@@ -7,8 +7,10 @@ const $ = selector => document.querySelector(selector);
 document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
 // Light is the default; an explicit preference from an earlier visit is respected.
 document.documentElement.dataset.theme = readStorage('atlas.theme', 'light') === 'dark' ? 'dark' : 'light';
-let state = parseState(location.href);
+const readState = () => ({ ...parseState(location.href), format: '' });
+let state = readState();
 let catalog, worker, requestId = 0, cleanupDetail = null, detailGeneration = 0;
+let pageDescription = '';
 let toastTimer, searchTimer, resultIds = [], detailIds = [], returnFocus = null;
 let assets = new Map(), config = { viewerUrl: '/vendor/usd/index.html' };
 let view = readStorage('atlas.view', 'grid') === 'list' ? 'list' : 'grid';
@@ -16,8 +18,6 @@ let collections = normalizeCollections(readStorage('atlas.collections', []));
 const rawSaved = readStorage('atlas.saved', []);
 let saved = new Set(Array.isArray(rawSaved) ? rawSaved.filter(id => typeof id === 'string') : []);
 const grid = new VirtualGrid($('#asset-grid'), $('#results-scroll'));
-// Only navigate inside this app's current session, never unexpectedly leave the site.
-let maxHistory = 0;
 history.replaceState({ atlasIndex: 0 }, '', location.href);
 const selectedCollection = () => collections.find(c => c.id === state.collection);
 const presentSaved = () => [...saved].filter(id => assets.has(id));
@@ -26,7 +26,7 @@ const modalOpen = () => [...document.querySelectorAll('dialog')].some(dialog => 
 function toast(message) {
     const el = $('#toast');
     // A native dialog lives in the top layer, above normal fixed elements.
-    (document.querySelector('#collection-dialog[open], #help-dialog[open], #asset-dialog[open]') || document.body).append(el);
+    (document.querySelector('#collection-dialog[open], #asset-dialog[open]') || document.body).append(el);
     el.textContent = message;
     el.hidden = false;
     clearTimeout(toastTimer);
@@ -36,20 +36,13 @@ function keepToast() { document.body.append($('#toast')); }
 function saveState() { history.replaceState(history.state, '', stateUrl(state, location.pathname)); }
 function pushState(detail = false) {
     const index = (history.state?.atlasIndex || 0) + 1;
-    maxHistory = index;
     history.pushState({ atlasIndex: index, atlasDetail: detail }, '', stateUrl(state, location.pathname));
-}
-function syncHistory() {
-    $('#nav-back').disabled = !(history.state?.atlasIndex > 0);
-    $('#nav-forward').disabled = (history.state?.atlasIndex || 0) >= maxHistory;
 }
 function renderCollections() {
     $('#collections').innerHTML = collections.map(c => `<button class="nav-item ${c.id === state.collection ? 'active' : ''}" data-collection="${e(c.id)}" aria-current="${c.id === state.collection}"><span>${icon('folder', 16)}</span><span>${e(c.name)}</span><span class="count">${c.ids.filter(id => assets.has(id)).length}</span></button>`).join('');
-    $('#collections-note').hidden = collections.length > 0;
 }
 function syncControls() {
     if ($('#search').value !== state.query) $('#search').value = state.query;
-    $('#format').value = state.format;
     $('#sort').value = state.sort;
     $('.search-clear').hidden = !state.query;
     $('#saved-count').textContent = String(presentSaved().length);
@@ -57,13 +50,10 @@ function syncControls() {
     const all = !state.saved && !state.collection;
     $('#all-assets').classList.toggle('active', all && !state.category);
     $('#saved-assets').classList.toggle('active', state.saved && !state.collection);
-    $('#tab-all').classList.toggle('active', all);
-    $('#tab-all').setAttribute('aria-pressed', String(all));
-    $('#tab-saved').classList.toggle('active', state.saved && !state.collection);
-    $('#tab-saved').setAttribute('aria-pressed', String(state.saved && !state.collection));
     $('#page-title').textContent = collection?.name || (state.saved ? 'Saved objects' : state.category || '3D Objects');
-    $('#page-description').textContent = state.saved ? 'Your good finds, kept close.' : 'Find your next building block.';
-    $('#page-description').hidden = !!collection;
+    pageDescription ||= $('#page-description').innerHTML;
+    $('#page-description').innerHTML = state.saved ? '<span>Objects you’ve saved on this device.</span>' : pageDescription;
+    $('#page-description').hidden = !!collection || !!state.category;
     $('#collection-manage').hidden = !collection;
     document.querySelectorAll('[data-category]').forEach(el => {
         const active = state.category === el.dataset.category;
@@ -79,17 +69,8 @@ function syncControls() {
     $('#theme-button').innerHTML = icon(dark ? 'sun' : 'moon');
     $('#theme-button').setAttribute('aria-label', `Switch to ${dark ? 'light' : 'dark'} theme`);
     $('meta[name="theme-color"]').content = dark ? '#171719' : '#ffffff';
-    const filters = [];
-    if (state.category) filters.push(`<button class="filter-pill" data-action="reset-category">${e(state.category)}${icon('close', 12)}</button>`);
-    if (state.format) filters.push(`<button class="filter-pill" data-action="reset-format">${e(state.format.toUpperCase())}${icon('close', 12)}</button>`);
-    const count = filters.length;
-    if (count) filters.push('<button class="text-action" data-action="reset">Clear filters</button>');
-    $('#active-filters').innerHTML = filters.join('');
-    $('#active-filters').hidden = !filters.length;
-    $('#filter-count').hidden = !count;
-    $('#filter-count').textContent = count;
+    $('#clear-category').hidden = !state.category || !!collection;
     renderCollections();
-    syncHistory();
 }
 function query() {
     clearTimeout(searchTimer);
@@ -127,7 +108,6 @@ function renderResults(result) {
     resultIds = result.ids;
     $('#result-count').textContent = `${result.ids.length.toLocaleString()} ${result.ids.length === 1 ? 'asset' : 'assets'}`;
     $('#asset-total').textContent = result.ids.length.toLocaleString();
-    $('#search-timing').textContent = state.query ? `${result.elapsed < 1 ? '< 1' : Math.round(result.elapsed)} ms search` : '';
     document.querySelectorAll('[data-category]').forEach(el => { el.querySelector('.count').textContent = (result.facets[el.dataset.category] || 0).toLocaleString(); });
     grid.set(result.ids.map(id => assets.get(id)), saved, view);
     $('#empty-state').hidden = !!result.ids.length;
@@ -150,7 +130,7 @@ async function showDetail(id, mode = 'push') {
     }
     const generation = ++detailGeneration;
     const focusedAction = wasOpen ? document.activeElement?.closest('[data-detail]')?.dataset.detail : '';
-    const infoOpen = wasOpen && !$('#asset-info')?.hidden;
+    const infoOpen = wasOpen ? !$('#asset-info')?.hidden : detailsOpenByDefault();
     keepToast();
     cleanupDetail?.({ keepOpen: true });
     cleanupDetail = null;
@@ -164,6 +144,7 @@ async function showDetail(id, mode = 'push') {
         cleanupDetail = openDetail($('#asset-dialog'), asset, {
             saved: saved.has(id), revision: catalog.revision, config, infoOpen,
             onSave: toggleSaved, onClose: closeDetail, toast,
+            onInfoToggle: open => { if (matchMedia('(min-width:1024px)').matches) writeStorage('atlas.details', open); },
             onCollection: () => collectionPicker(asset),
             onNavigate: nextId => showDetail(nextId, 'replace'),
             context: { ids: detailIds, index, assets },
@@ -178,7 +159,9 @@ async function showDetail(id, mode = 'push') {
     } catch (error) {
         hideDetail(); toast('Could not open preview: ' + error.message); state.asset = ''; saveState();
     }
-    syncHistory();
+}
+function detailsOpenByDefault() {
+    return matchMedia('(min-width:1024px)').matches && readStorage('atlas.details', true) !== false;
 }
 function hideDetail() {
     detailGeneration++;
@@ -265,20 +248,12 @@ function exportLibrary() {
     downloadJSON('atlas-library.json', { version: 2, dataset: 'nvidia/simready-assets', exportedAt: new Date().toISOString(), ids: [...saved], collections });
     toast('Saved objects and collections exported');
 }
-function help() {
-    if ($('#sidebar').classList.contains('open')) toggleSidebar(false);
-    const dialog = $('#help-dialog'); keepToast();
-    dialog.innerHTML = `<div class="dialog-heading"><strong id="help-title">A few things to know</strong><button class="icon-btn" data-action="close-help" aria-label="Close help">${icon('close')}</button></div><div class="help-content"><h2>Less looking.<br>More making.</h2><p>Atlas is an independent browser for NVIDIA’s SimReady collection. Models stay on Hugging Face. Search, saved objects, and collections live on your device. No account or per-search AI calls.</p><h3>Make yourself at home</h3><table><tr><td>Search anything</td><td><kbd>/</kbd> or <kbd>⌘ / Ctrl K</kbd></td></tr><tr><td>Move through gallery or previews</td><td><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></td></tr><tr><td>Open focused object</td><td><kbd>Enter</kbd></td></tr><tr><td>Save / show details in preview</td><td><kbd>S</kbd> / <kbd>I</kbd></td></tr><tr><td>Close preview</td><td><kbd>Esc</kbd></td></tr><tr><td>Exact phrase / exclude a term</td><td><code>"frying pan" -red</code></td></tr></table><h3>Your objects, organized</h3><p>Heart an object to save it. Open a preview and use the folder button to add it to a collection. Everything is stored in this browser. Export before clearing browser data, or import on another device.</p><div class="help-buttons"><button class="button" data-action="export">${icon('download')}Export library</button><button class="button" data-action="import">Import library</button></div><h3>About this catalog</h3><p>${catalog?.mode === 'preview' ? 'The bundled catalog contains 15 real objects with screenshot-derived thumbnails. Run <code>npm run setup</code> on a connected computer to import the full source listing and install the optional 3D viewer.' : 'This is a pinned source snapshot. Run <code>npm run catalog:sync</code> and rebuild to publish updates.'} Catalog sync downloads file metadata, not the full model collection.</p><h3>Know what you are using</h3><p>Tags come from filenames and a curated taxonomy. Optional Jev suggestions require review. Mass, friction, collision readiness, and licensing are not inferred from images. Check the source package before using or redistributing it.</p><p>Heavy 3D files load only after you choose <strong>Explore in 3D</strong>. Closing or switching previews removes the isolated viewer.</p><p class="detail-footer">Independent project. Not affiliated with NVIDIA, Hugging Face, or Brainwave. Preview and model rights remain with their original owners.</p></div>`;
-    dialog.showModal();
-}
 function onReady(data) {
     catalog = data; assets = new Map(catalog.assets.map(a => [a.id, a]));
     if (state.collection && !selectedCollection()) { state.collection = ''; toast('That collection belongs to another browser. Showing all objects.'); }
     const categories = [...new Set(catalog.assets.map(a => a.category))].sort();
     $('#categories').innerHTML = categories.map(c => `<button class="nav-item" data-category="${e(c)}" title="${e(c)}"><span>${icon(categoryIcon(c), 15)}</span><span>${e(c)}</span><span class="count">0</span></button>`).join('');
     $('#all-count').textContent = catalog.assets.length.toLocaleString();
-    $('#catalog-status').textContent = `${catalog.assets.length.toLocaleString()} objects · Local search`;
-    $('#catalog-notice').hidden = catalog.mode !== 'preview';
     query();
     if (state.asset) showDetail(state.asset, 'replace');
 }
@@ -302,7 +277,6 @@ function init() {
 }
 
 $('#search').addEventListener('input', event => { state.query = event.target.value; clearTimeout(searchTimer); searchTimer = setTimeout(query, 25); });
-$('#format').addEventListener('change', event => change({ format: event.target.value }));
 $('#sort').addEventListener('change', event => change({ sort: event.target.value }));
 document.addEventListener('click', event => {
     const target = event.target;
@@ -326,26 +300,17 @@ document.addEventListener('click', event => {
     if (action === 'saved') change({ saved: true, collection: '', category: '' });
     if (action === 'reset') change({ query: '', category: '', format: '', saved: false, collection: '', sort: 'relevance', preview: false });
     if (action === 'reset-category') change({ category: '' });
-    if (action === 'reset-format') change({ format: '' });
     if (action === 'clear-query') { change({ query: '' }, false); $('#search').focus(); }
     if (action === 'toggle-sidebar') toggleSidebar();
-    if (action === 'toggle-filter-panel') {
-        $('#filter-panel').hidden = !$('#filter-panel').hidden;
-        $('#filter-toggle').setAttribute('aria-expanded', String(!$('#filter-panel').hidden));
-    }
     if (action === 'theme') {
         document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
         writeStorage('atlas.theme', document.documentElement.dataset.theme); syncControls();
     }
-    if (action === 'help') help();
-    if (action === 'close-help') { keepToast(); $('#help-dialog').close(); }
     if (action === 'export') exportLibrary();
     if (action === 'import') $('#import-file').click();
     if (action === 'new-collection') collectionEditor();
     if (action === 'manage-collection') collectionEditor(selectedCollection());
     if (action === 'close-collection') closeCollection();
-    if (action === 'back' && !$('#nav-back').disabled) history.back();
-    if (action === 'forward' && !$('#nav-forward').disabled) history.forward();
     if (action === 'retry') location.reload();
 });
 $('#import-file').addEventListener('change', async event => {
@@ -369,16 +334,14 @@ document.addEventListener('keydown', event => {
         event.preventDefault(); if ($('#sidebar').classList.contains('open')) toggleSidebar(false);
         $('#search').focus(); $('#search').select();
     }
-    if (event.key === '?' && !typing && !modalOpen()) help();
     if (event.key === 'Escape' && !modalOpen()) {
         if ($('#sidebar').classList.contains('open')) toggleSidebar(false);
-        else if (!$('#filter-panel').hidden) { $('#filter-panel').hidden = true; $('#filter-toggle').setAttribute('aria-expanded', 'false'); $('#filter-toggle').focus(); }
         else if (state.query) change({ query: '' }, false);
     }
 });
-for (const dialog of [$('#collection-dialog'), $('#help-dialog')]) dialog.addEventListener('close', keepToast);
+$('#collection-dialog').addEventListener('close', keepToast);
 window.addEventListener('popstate', () => {
-    state = parseState(location.href); hideDetail();
+    state = readState(); hideDetail();
     if (state.collection && !selectedCollection()) state.collection = '';
     query(); if (catalog && state.asset) showDetail(state.asset, 'replace');
 });
@@ -396,8 +359,12 @@ fetch('/config.json').then(r => r.ok ? r.json() : {}).then(c => {
     config = { ...config, ...c };
     if (typeof c.name === 'string' && c.name.trim()) {
         const name = c.name.trim().slice(0, 40); $('#brand-name').textContent = name;
-        $('.brand').setAttribute('aria-label', name + ' home'); document.title = name + ' — The SimReady library';
+        $('.brand').setAttribute('aria-label', name + ' home'); document.title = document.title.replace(/^[^—]+—/, `${name} —`);
     }
     if (typeof c.subtitle === 'string') $('.brand-sub').textContent = c.subtitle.slice(0, 60);
+    if (typeof c.contactEmail === 'string' && /^[^\s@<>"']+@[^\s@<>"']+\.[a-z]{2,}$/i.test(c.contactEmail.trim())) {
+        const link = $('#removal-link'); link.href = 'mailto:' + encodeURIComponent(c.contactEmail.trim()).replace('%40', '@') + '?subject=SimReady%20Tiny%20removal%20request'; link.hidden = false;
+    }
 }).catch(() => {});
 syncControls(); init();
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(error => console.warn('Atlas model cache unavailable', error.message)), { once: true });
