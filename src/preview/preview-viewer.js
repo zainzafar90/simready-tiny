@@ -43,63 +43,96 @@ function probeViewer(entry) {
     return viewerProbe;
 }
 
-/** One isolated viewer iframe; reports phase changes. */
-export function createViewer({ stage, asset, modelUrls, entry, onState }) {
-    let frame = null, timer = 0, retryTimer = 0, retries = 0, source = 0, generation = 0, ready = false;
+const VIEWER_SOURCE = 'atlas-viewer';
 
-    function stop() {
-        generation++; ready = false;
-        clearTimeout(timer); clearTimeout(retryTimer);
-        frame?.remove(); frame = null;
-        stage.classList.remove('is-3d');
+/** One isolated viewer iframe; reports phase changes. */
+class PreviewViewer {
+    #frame = null; #timer = 0; #retryTimer = 0; #retries = 0; #source = 0; #generation = 0; #ready = false;
+
+    constructor({ stage, asset, modelUrls, entry, onState }) {
+        Object.assign(this, { stage, asset, modelUrls, entry, onState });
+        window.addEventListener('message', this.#onMessage);
     }
-    function fail(message) {
-        stop();
-        onState({ phase: 'error', message });
-    }
-    async function load() {
-        if (frame) return;
-        const current = ++generation;
-        onState({ phase: 'loading', label: 'Loading model', fraction: null });
+
+    stop = () => {
+        this.#generation++;
+        this.#ready = false;
+        clearTimeout(this.#timer);
+        clearTimeout(this.#retryTimer);
+        this.#frame?.remove();
+        this.#frame = null;
+        this.stage.classList.remove('is-3d');
+    };
+
+    dispose = () => {
+        this.stop();
+        window.removeEventListener('message', this.#onMessage);
+    };
+
+    load = async () => {
+        if (this.#frame) return;
+        const current = ++this.#generation;
+        this.onState({ phase: 'loading', label: 'Loading model', fraction: null });
         try {
-            if (new URL(entry, location.href).origin !== location.origin) throw new Error('The viewer must be installed on the same origin as this site.');
-            await probeViewer(entry);
-            if (current !== generation) return;
-            frame = document.createElement('iframe');
-            frame.title = `Interactive 3D: ${asset.name}`;
-            frame.referrerPolicy = 'no-referrer';
-            frame.src = entry + '#model=' + encodeURIComponent(modelUrls[source]);
-            stage.append(frame);
-            timer = setTimeout(() => { if (current === generation) onState({ phase: 'loading', label: 'Still loading, large model', fraction: null }); }, STALL_MS);
+            if (new URL(this.entry, location.href).origin !== location.origin) throw new Error('The viewer must be installed on the same origin as this site.');
+            await probeViewer(this.entry);
+            if (current === this.#generation) this.#mountFrame(current);
         } catch (error) {
-            if (current === generation) fail(error.message);
+            if (current === this.#generation) this.#fail(error.message);
         }
+    };
+
+    #mountFrame(current) {
+        const frame = document.createElement('iframe');
+        frame.title = `Interactive 3D: ${this.asset.name}`;
+        frame.referrerPolicy = 'no-referrer';
+        frame.src = `${this.entry}#model=${encodeURIComponent(this.modelUrls[this.#source])}`;
+        this.stage.append(frame);
+        this.#frame = frame;
+        this.#timer = setTimeout(() => { if (current === this.#generation) this.onState({ phase: 'loading', label: 'Still loading, large model', fraction: null }); }, STALL_MS);
     }
-    function restart(label, delay) {
-        stop();
-        onState({ phase: 'loading', label, fraction: null });
-        retryTimer = setTimeout(load, delay);
+
+    #fail(message) {
+        this.stop();
+        this.onState({ phase: 'error', message });
     }
-    function retryOrFail(message) {
-        if (isTransientViewerError(message) && retries < MAX_AUTO_RETRIES) { retries++; return restart('Connection hiccup, retrying', RETRY_DELAY_MS); }
-        if (source < modelUrls.length - 1) { source++; retries = 0; return restart('Trying the original source', 0); }
-        fail(viewerErrorMessage(message));
+
+    #restart(label, delay) {
+        this.stop();
+        this.onState({ phase: 'loading', label, fraction: null });
+        this.#retryTimer = setTimeout(this.load, delay);
     }
-    function onProgress(fraction, stageName) {
-        if (ready && (fraction === null || fraction >= 1)) onState({ phase: 'ready' });
-        else onState({ phase: 'loading', label: stageLabel(stageName), fraction });
+
+    #retryOrFail(message) {
+        if (isTransientViewerError(message) && this.#retries < MAX_AUTO_RETRIES) { this.#retries++; return this.#restart('Connection hiccup, retrying', RETRY_DELAY_MS); }
+        if (this.#source < this.modelUrls.length - 1) { this.#source++; this.#retries = 0; return this.#restart('Trying the original source', 0); }
+        this.#fail(viewerErrorMessage(message));
     }
-    function onMessage(event) {
-        if (!frame || event.source !== frame.contentWindow || event.origin !== location.origin || event.data?.source !== 'atlas-viewer') return;
-        const data = event.data;
-        if (data.type === 'progress') onProgress(clampFraction(data.fraction), data.stage);
-        if (data.type === 'ready') { ready = true; retries = 0; clearTimeout(timer); stage.classList.add('is-3d'); onState({ phase: 'ready' }); }
-        if (data.type === 'error') {
-            console.warn('Atlas viewer error', asset.id, String(data.message || '').slice(0, 300));
-            retryOrFail(data.message);
-        }
-        if (data.type === 'warning') console.warn('Atlas viewer warning', asset.id, String(data.message || '').slice(0, 300));
+
+    #onProgress(fraction, stageName) {
+        if (this.#ready && (fraction === null || fraction >= 1)) this.onState({ phase: 'ready' });
+        else this.onState({ phase: 'loading', label: stageLabel(stageName), fraction });
     }
-    window.addEventListener('message', onMessage);
-    return { load, stop, dispose() { stop(); window.removeEventListener('message', onMessage); } };
+
+    #onReady() {
+        this.#ready = true;
+        this.#retries = 0;
+        clearTimeout(this.#timer);
+        this.stage.classList.add('is-3d');
+        this.onState({ phase: 'ready' });
+    }
+
+    #onMessage = event => {
+        if (!this.#frame || event.source !== this.#frame.contentWindow || event.origin !== location.origin || event.data?.source !== VIEWER_SOURCE) return;
+        const { type, fraction, stage, message } = event.data;
+        const detail = String(message || '').slice(0, 300);
+        if (type === 'progress') this.#onProgress(clampFraction(fraction), stage);
+        if (type === 'ready') this.#onReady();
+        if (type === 'error') { console.warn('Viewer error', this.asset.id, detail); this.#retryOrFail(message); }
+        if (type === 'warning') console.warn('Viewer warning', this.asset.id, detail);
+    };
+}
+
+export function createViewer(options) {
+    return new PreviewViewer(options);
 }

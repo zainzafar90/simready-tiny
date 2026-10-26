@@ -30,58 +30,63 @@ export function hfUrl(path, revision = 'main', kind = 'resolve') {
         throw new Error('Unsafe repository path: ' + path);
     return `https://huggingface.co/datasets/${DATASET}/${kind}/${encodeURIComponent(revision)}/${path.split('/').map(encodeURIComponent).join('/')}`;
 }
-export function normalizeCatalog(entries, revision, { now = new Date().toISOString() } = {}) {
+const PACKAGING_MANIFEST = '/com.nvidia.simready.packaging.json';
+const THUMB = /^(.*)\/\.thumbs\/(\d+)x(\d+)\/([^/]+\.(?:usd|usda|usdc|usdz))\.png$/i;
+const TOP_LAYER = /^[^/]+\/simready_usd\/[^/]+\.(usd|usda|usdc|usdz)$/i;
+const NOT_ENTRY = /\/(materials|textures|source_assets|\.thumbs)\//i;
+
+function indexFiles(entries, issues) {
     const files = new Map();
-    const issues = [];
     for (const entry of entries) {
-        if (entry.type !== 'file')
-            continue;
-        if (!validPath(entry.path)) {
-            issues.push({ path: String(entry.path), reason: 'unsafe-path' });
-            continue;
-        }
-        files.set(entry.path, entry);
+        if (entry.type !== 'file') continue;
+        if (validPath(entry.path)) files.set(entry.path, entry);
+        else issues.push({ path: String(entry.path), reason: 'unsafe-path' });
     }
+    return files;
+}
+
+function packageStats(files) {
     const sizes = new Map(), manifests = new Set();
     for (const [path, file] of files) {
-        const p = path.split('/')[0];
-        if (Number.isFinite(file.size) && file.size >= 0)
-            sizes.set(p, (sizes.get(p) || 0) + file.size);
-        if (path.endsWith('/com.nvidia.simready.packaging.json'))
-            manifests.add(path.slice(0, -'/com.nvidia.simready.packaging.json'.length));
+        const pkg = path.split('/')[0];
+        if (Number.isFinite(file.size) && file.size >= 0) sizes.set(pkg, (sizes.get(pkg) || 0) + file.size);
+        if (path.endsWith(PACKAGING_MANIFEST)) manifests.add(path.slice(0, -PACKAGING_MANIFEST.length));
     }
+    return { sizes, manifests };
+}
+
+function entryLayers(files, issues) {
     const candidates = new Map();
     /* previews pair with same-named layers */
     for (const path of files.keys()) {
-        const match = path.match(/^(.*)\/\.thumbs\/(\d+)x(\d+)\/([^/]+\.(?:usd|usda|usdc|usdz))\.png$/i);
-        if (!match)
-            continue;
-        const usdPath = match[1] + '/' + match[4];
-        if (!files.has(usdPath)) {
-            issues.push({ path, reason: 'thumbnail-without-matching-layer' });
-            continue;
-        }
+        const match = path.match(THUMB);
+        if (!match) continue;
+        const usdPath = `${match[1]}/${match[4]}`;
+        if (!files.has(usdPath)) { issues.push({ path, reason: 'thumbnail-without-matching-layer' }); continue; }
         const score = Math.abs(Number(match[2]) - 256);
-        if (!candidates.has(usdPath) || score < candidates.get(usdPath).score)
-            candidates.set(usdPath, { thumb: path, score });
+        if (!candidates.has(usdPath) || score < candidates.get(usdPath).score) candidates.set(usdPath, { thumb: path, score });
     }
     /* keep top-level layers without previews */
-    for (const path of files.keys())
-        if (/^[^/]+\/simready_usd\/[^/]+\.(usd|usda|usdc|usdz)$/i.test(path) && !candidates.has(path))
-            candidates.set(path, { thumb: null });
-    const assets = [];
-    for (const [usdPath, { thumb }] of candidates) {
-        if (/\/(materials|textures|source_assets|\.thumbs)\//i.test(usdPath))
-            continue;
-        const packagePath = usdPath.split('/')[0];
-        const labels = inferLabels(packagePath);
-        assets.push({ id: usdPath, ...labels, packagePath, usdPath, fileType: usdPath.split('.').at(-1).toLowerCase(), usdSizeBytes: files.get(usdPath)?.size, packageSizeBytes: sizes.get(packagePath), thumbnailUrl: thumb ? hfUrl(thumb, revision) : null, remoteThumbnailUrl: thumb ? hfUrl(thumb, revision) : null, thumbnailPath: thumb, usdUrl: hfUrl(usdPath, revision), sourceUrl: hfUrl(packagePath, revision, 'tree'), viewerSourceUrl: hfUrl(usdPath, revision, 'blob'), metadataSource: 'filename+taxonomy' });
-    }
-    assets.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+    for (const path of files.keys()) if (TOP_LAYER.test(path) && !candidates.has(path)) candidates.set(path, { thumb: null });
+    return candidates;
+}
+
+function buildAsset(usdPath, thumb, files, sizes, revision) {
+    const packagePath = usdPath.split('/')[0];
+    const thumbnailUrl = thumb ? hfUrl(thumb, revision) : null;
+    return { id: usdPath, ...inferLabels(packagePath), packagePath, usdPath, fileType: usdPath.split('.').at(-1).toLowerCase(), usdSizeBytes: files.get(usdPath)?.size, packageSizeBytes: sizes.get(packagePath), thumbnailUrl, remoteThumbnailUrl: thumbnailUrl, thumbnailPath: thumb, usdUrl: hfUrl(usdPath, revision), sourceUrl: hfUrl(packagePath, revision, 'tree'), viewerSourceUrl: hfUrl(usdPath, revision, 'blob'), metadataSource: 'filename+taxonomy' };
+}
+
+export function normalizeCatalog(entries, revision, { now = new Date().toISOString() } = {}) {
+    const issues = [];
+    const files = indexFiles(entries, issues);
+    const { sizes, manifests } = packageStats(files);
+    const assets = [...entryLayers(files, issues)]
+        .filter(([usdPath]) => !NOT_ENTRY.test(usdPath))
+        .map(([usdPath, { thumb }]) => buildAsset(usdPath, thumb, files, sizes, revision))
+        .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
     const discovered = new Set(assets.map(a => a.packagePath));
-    for (const path of manifests)
-        if (!discovered.has(path.split('/')[0]))
-            issues.push({ path, reason: 'manifest-without-indexed-entry-layer' });
+    for (const path of manifests) if (!discovered.has(path.split('/')[0])) issues.push({ path, reason: 'manifest-without-indexed-entry-layer' });
     return { schemaVersion: 1, dataset: DATASET, revision, mode: 'snapshot', generatedAt: now, assets, stats: { listedFiles: files.size, packages: discovered.size, entryLayers: assets.length, thumbnails: assets.filter(a => a.thumbnailUrl).length }, issues };
 }
 export function applyEnrichment(catalog, enrichment) {

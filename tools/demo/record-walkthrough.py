@@ -54,13 +54,7 @@ async def wait_for_3d(page):
     await asyncio.sleep(0.8)
 
 
-async def walkthrough(page, base, started):
-    await page.goto(base)
-    await page.wait_for_selector('.asset-card img')
-    await page.wait_for_function("document.documentElement.dataset.theme === 'dark'")
-    await asyncio.sleep(0.4)
-    trim_s = time.monotonic() - started
-    await asyncio.sleep(1.2)
+async def browse_vehicles(page):
     await click(page, page.locator('[data-category="Vehicles"]'), 1.5)
     tag = page.locator('.load-tag').first
     if await tag.count():
@@ -72,6 +66,9 @@ async def walkthrough(page, base, started):
     await wait_for_3d(page)
     await orbit(page, -240, -30)
     await click(page, page.locator('[data-detail="close"]'), 1)
+
+
+async def search_screwdrivers(page):
     await click(page, page.locator('#all-assets'), 1)
     await click(page, page.locator('#search'), 0.3)
     await page.keyboard.type('screwdriver', delay=110)
@@ -82,6 +79,18 @@ async def walkthrough(page, base, started):
     await orbit(page)
     await click(page, page.locator('[data-detail="save"]'), 1)
     await click(page, page.locator('[data-detail="close"]'), 1.5)
+
+
+async def walkthrough(page, base, started):
+    """Returns seconds to trim before the gallery is ready."""
+    await page.goto(base)
+    await page.wait_for_selector('.asset-card img')
+    await page.wait_for_function("document.documentElement.dataset.theme === 'dark'")
+    await asyncio.sleep(0.4)
+    trim_s = time.monotonic() - started
+    await asyncio.sleep(1.2)
+    await browse_vehicles(page)
+    await search_screwdrivers(page)
     return trim_s
 
 

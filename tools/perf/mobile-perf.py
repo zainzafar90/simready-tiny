@@ -3,7 +3,7 @@
 Start a server first:  node scripts/serve.mjs --port 4175
 Run:                   python3 tools/perf/mobile-perf.py [--base http://127.0.0.1:4175]
 Report:                reports/perf/mobile-perf.json
-Optimized models must already exist in public/preview-models (tools/preview-pilot/pilot.py).
+Compares the original Hugging Face files with the R2 mirror of shrunk copies.
 """
 import argparse, asyncio, json, time
 from pathlib import Path
@@ -12,6 +12,7 @@ from playwright.async_api import async_playwright
 ROOT = Path(__file__).resolve().parents[2]
 REVISION = '524747d9b5e1f21b5b18b56041788c01d745f1a1'
 HF = f'https://huggingface.co/datasets/nvidia/simready-assets/resolve/{REVISION}/'
+MIRROR = f'https://simready-models.zainzafar.net/{REVISION}/'
 MODELS = {
     'pan (2 MB)': 'kitchenware_pan_c01/simready_usd/sm_kitchenware_pan_c01_01.usd',
     'fender (35 MB)': 'bodyPart_fender_rear_b01/simready_usd/sm_bodyPart_fender_rear_b01_01.usd',
@@ -61,33 +62,39 @@ async def measure_gallery(browser, playwright, profile, base):
     return {'fcpS': round(fcp / 1000, 2), 'lcpS': round(lcp / 1000, 2), 'searchReadyS': round(searchable, 2), 'firstImagesS': round(first_images, 2), 'mb': transferred_mb(sizes)}
 
 
-async def measure_model(browser, playwright, profile, base, model_url):
-    context, page = await new_page(browser, playwright, profile)
+def track_network(page):
+    """Counts transferred bytes and in-flight requests."""
     sizes, inflight = [], {'n': 0, 'idle_since': time.monotonic()}
     def settle(delta):
         inflight['n'] += delta
         if inflight['n'] == 0: inflight['idle_since'] = time.monotonic()
+    def record(future):
+        if not future.cancelled() and not future.exception(): sizes.append(future.result()['responseBodySize'])
     page.on('request', lambda r: settle(1))
     page.on('requestfailed', lambda r: settle(-1))
-    page.on('requestfinished', lambda r: (settle(-1), asyncio.ensure_future(r.sizes()).add_done_callback(lambda f: f.cancelled() or f.exception() or sizes.append(f.result()['responseBodySize']))))
-    await page.add_init_script("window.__ev=[];addEventListener('message',e=>{if(e.data?.source==='atlas-viewer')__ev.push({type:e.data.type,f:e.data.fraction,t:performance.now()})})")
-    start = time.monotonic()
-    await page.goto(f'{base}/vendor/usd/index.html#model={model_url}')
-    result = {'readyS': None, 'texturesDoneS': None, 'error': None}
+    page.on('requestfinished', lambda r: (settle(-1), asyncio.ensure_future(r.sizes()).add_done_callback(record)))
+    return sizes, inflight
+
+
+async def await_viewer(page, inflight, start):
     deadline = time.monotonic() + TIMEOUT_S
     while time.monotonic() < deadline:
         events = await page.evaluate('__ev')
-        error = next((e for e in events if e['type'] == 'error'), None)
+        if any(e['type'] == 'error' for e in events): return {'readyS': None, 'texturesDoneS': None, 'error': 'viewer error'}
         ready = next((e for e in events if e['type'] == 'ready'), None)
-        if error: result['error'] = 'viewer error'; break
-        if ready:
-            result['readyS'] = round(ready['t'] / 1000, 1)
-            if inflight['n'] == 0 and time.monotonic() - inflight['idle_since'] > 2:
-                result['texturesDoneS'] = round(inflight['idle_since'] - start, 1)
-                break
+        if ready and inflight['n'] == 0 and time.monotonic() - inflight['idle_since'] > 2:
+            return {'readyS': round(ready['t'] / 1000, 1), 'texturesDoneS': round(inflight['idle_since'] - start, 1), 'error': None}
         await asyncio.sleep(0.5)
-    else:
-        result['error'] = f'timeout {TIMEOUT_S}s'
+    return {'readyS': None, 'texturesDoneS': None, 'error': f'timeout {TIMEOUT_S}s'}
+
+
+async def measure_model(browser, playwright, profile, base, model_url):
+    context, page = await new_page(browser, playwright, profile)
+    sizes, inflight = track_network(page)
+    await page.add_init_script("window.__ev=[];addEventListener('message',e=>{if(e.data?.source==='atlas-viewer')__ev.push({type:e.data.type,f:e.data.fraction,t:performance.now()})})")
+    start = time.monotonic()
+    await page.goto(f'{base}/vendor/usd/index.html#model={model_url}')
+    result = await await_viewer(page, inflight, start)
     result['mb'] = transferred_mb(sizes)
     await context.close()
     return result
@@ -108,7 +115,7 @@ async def main():
             row = {'profile': profile['name'], 'gallery': await measure_gallery(browser, p, profile, args.base), 'models': {}}
             print(profile['name'], 'gallery', row['gallery'], flush=True)
             for label, path in MODELS.items():
-                for variant, url in (('original', HF + path), ('optimized', f'{args.base}/preview-models/{REVISION}/{path}')):
+                for variant, url in (('original', HF + path), ('optimized', MIRROR + path)):
                     known = report['modelBytes'].get(f'{label}:{variant}')
                     if known and estimate_s(known, profile) > TIMEOUT_S:
                         result = {'skipped': True, 'estimatedS': estimate_s(known, profile), 'mb': known}

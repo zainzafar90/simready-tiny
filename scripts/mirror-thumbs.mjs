@@ -52,23 +52,29 @@ async function mirrorAsset(asset, { folder, scratch, revision }) {
     return { cached, bytes: (await stat(grid)).size + (await stat(preview)).size };
 }
 
-async function main() {
+function parseOptions(total) {
     if (!flag('--confirm-rights')) throw new Error('Review source redistribution terms first. Re-run with --confirm-rights to mirror thumbnails.');
-    await run('cwebp', ['-version']).catch(() => { throw new Error('cwebp not found. Install it with: brew install webp'); });
     const concurrency = Number(arg('--concurrency', 8));
     if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 32) throw new Error('--concurrency must be a whole number from 1 to 32.');
-    const dryRun = flag('--dry-run'), catalog = await currentCatalog();
-    const scratch = await mkdtemp(join(tmpdir(), 'atlas-thumbs-'));
-    const folder = dryRun ? scratch : resolve(ROOT, 'public/thumbs');
-    await mkdir(folder, { recursive: true });
-    const assets = catalog.assets.slice(0, Number(arg('--limit', catalog.assets.length)));
+    return { concurrency, dryRun: flag('--dry-run'), limit: Number(arg('--limit', total)) };
+}
+
+async function requireCwebp() {
+    try {
+        await run('cwebp', ['-version']);
+    } catch (error) {
+        throw new Error('cwebp not found. Install it with: brew install webp', { cause: error });
+    }
+}
+
+async function mirrorAll(assets, context, concurrency) {
     const stats = { done: 0, cached: 0, failed: 0, bytes: 0 };
     let next = 0;
     const worker = async () => {
         while (next < assets.length) {
             const asset = assets[next++];
             try {
-                const result = await mirrorAsset(asset, { folder, scratch, revision: catalog.revision });
+                const result = await mirrorAsset(asset, context);
                 if (result.skipped) continue;
                 stats.done++; stats.bytes += result.bytes; if (result.cached) stats.cached++;
                 if (stats.done % 100 === 0) console.log(`${stats.done}/${assets.length} thumbnails`);
@@ -78,8 +84,20 @@ async function main() {
             }
         }
     };
+    await Promise.all(Array.from({ length: concurrency }, worker));
+    return stats;
+}
+
+async function main() {
+    const catalog = await currentCatalog();
+    const { concurrency, dryRun, limit } = parseOptions(catalog.assets.length);
+    await requireCwebp();
+    const scratch = await mkdtemp(join(tmpdir(), 'atlas-thumbs-'));
+    const folder = dryRun ? scratch : resolve(ROOT, 'public/thumbs');
+    await mkdir(folder, { recursive: true });
+    let stats;
     try {
-        await Promise.all(Array.from({ length: concurrency }, worker));
+        stats = await mirrorAll(catalog.assets.slice(0, limit), { folder, scratch, revision: catalog.revision }, concurrency);
     } finally {
         await rm(scratch, { recursive: true, force: true });
     }
