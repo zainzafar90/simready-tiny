@@ -11,6 +11,7 @@ export interface Asset {
   fileType: 'usd' | 'usda' | 'usdc' | 'usdz';
   usdSizeBytes?: number;
   packageSizeBytes?: number;
+  previewSizeBytes?: number;
   thumbnailUrl: string | null;
   remoteThumbnailUrl?: string | null;
   previewImageUrl?: string | null;

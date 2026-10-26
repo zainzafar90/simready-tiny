@@ -134,24 +134,32 @@ select { min-height: 33px; padding: 6px 26px 6px 9px; border: 1px solid var(--li
 .virtual-stage { position: relative; width: 100%; }
 .asset-card { position: absolute; contain: layout style; }
 .asset-open { width: 100%; height: 100%; text-align: left; padding: 0; display: flex; flex-direction: column; border-radius: 16px; }
-.asset-image { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 1; overflow: hidden; border-radius: 17px; border: 1px solid var(--line); background: var(--media); }
+.asset-card:not(.list) .asset-open { padding: 8px; border: 1px solid var(--line); border-radius: 20px; background: var(--bg); transition: border-color 140ms ease, box-shadow 140ms ease; }
+@media (hover:hover) { .asset-card:not(.list) .asset-open:hover { border-color: var(--line-strong); box-shadow: 0 8px 24px rgb(0 0 0 / .06); } }
+.asset-image { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 1; overflow: hidden; border-radius: 14px; background: var(--media); }
 .asset-image img { display: block; width: 100%; height: 100%; object-fit: contain; transition: transform 180ms ease, opacity 220ms ease; }
 .asset-image.is-loading img, .detail-preview.is-loading > img { opacity: 0; }
 .asset-image.is-loading::before, .detail-preview.is-loading::before { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, var(--shimmer) 50%, transparent 80%); transform: translateX(-100%); animation: shimmer 1.4s ease-in-out infinite; }
 @keyframes shimmer { to { transform: translateX(100%); } }
-.virtual-stage:has(> .skeleton-card) { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 18px; }
-.skeleton-card { display: flex; flex-direction: column; }
-.skeleton-line { height: 9px; width: 72%; margin: 12px 0 0 3px; border-radius: 4px; background: var(--surface); }
-.skeleton-line.short { width: 38%; margin-top: 8px; }
+.virtual-stage:has(> .skeleton-card) { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+.skeleton-card { display: flex; flex-direction: column; padding: 8px 8px 14px; border: 1px solid var(--line); border-radius: 20px; }
+.skeleton-line { height: 10px; width: 70%; margin: 14px 0 0 8px; border-radius: 4px; background: var(--surface); }
+.skeleton-line.short { width: 36%; margin-top: 9px; }
 @media (hover:hover) { .asset-open:hover .asset-image img { transform: scale(1.025); } }
-.asset-caption { display: flex; flex-direction: column; width: 100%; padding: 12px 3px 0; gap: 6px; }
-.asset-name { font-size: 12px; line-height: 1.2; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.asset-subline { display: flex; align-items: center; gap: 0; min-width: 0; color: var(--muted); font-size: 10px; }
+.asset-caption { display: flex; flex-direction: column; width: 100%; padding: 12px 8px 4px; gap: 5px; }
+.asset-name { font-size: 13px; line-height: 1.25; font-weight: 550; letter-spacing: -.1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asset-subline { display: flex; align-items: center; gap: 0; min-width: 0; color: var(--muted); font-size: 11px; }
 .asset-category { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .asset-size { flex-shrink: 0; font-variant-numeric: tabular-nums; }
-.load-tag { flex-shrink: 0; margin-left: 7px; padding: 1px 6px; border: 1px solid var(--line-strong); border-radius: 5px; font-size: 9.5px; line-height: 1.5; color: var(--muted); cursor: help; }
+.load-tag { position: relative; flex-shrink: 0; margin-left: 7px; padding: 1px 6px; border: 1px solid var(--line-strong); border-radius: 5px; font-size: 9.5px; line-height: 1.5; color: var(--muted); cursor: help; }
+.load-tag::after { content: attr(data-tip); position: absolute; z-index: 5; left: -4px; bottom: calc(100% + 9px); width: 216px; padding: 9px 11px; border-radius: 9px; background: var(--text); color: var(--bg); font-size: 11px; font-weight: 450; line-height: 1.45; white-space: normal; box-shadow: var(--shadow-pop); opacity: 0; transform: translateY(3px); pointer-events: none; transition: opacity 90ms ease, transform 90ms ease; }
+.load-tag::before { content: ''; position: absolute; z-index: 6; left: 10px; bottom: calc(100% + 5px); width: 8px; height: 8px; background: var(--text); transform: rotate(45deg); opacity: 0; pointer-events: none; transition: opacity 90ms ease; }
+.load-tag:hover { color: var(--text); border-color: var(--muted); }
+.load-tag:hover::after { opacity: 1; transform: none; }
+.load-tag:hover::before { opacity: 1; }
+.asset-card:has(.load-tag:hover) { z-index: 3; }
 .asset-category:not(:empty) + .asset-size:not(:empty)::before { content: '·'; margin: 0 6px; color: var(--subtle); }
-.save-btn { position: absolute; right: 11px; top: 11px; display: flex; align-items: center; justify-content: center; width: 31px; height: 31px; border-radius: 9px; background: #ffffffed; color: #444; box-shadow: 0 1px 4px #0000000a; opacity: 0; transition: opacity 120ms; }
+.save-btn { position: absolute; right: 16px; top: 16px; display: flex; align-items: center; justify-content: center; width: 31px; height: 31px; border-radius: 9px; background: #ffffffed; color: #444; box-shadow: 0 1px 4px #0000000a; opacity: 0; transition: opacity 120ms; }
 .asset-card:hover .save-btn, .asset-card:focus-within .save-btn, .save-btn.is-saved { opacity: 1; }
 .save-btn.is-saved svg { fill: currentColor; }
 .save-btn:hover { color: #bc5f52; background: #fff; }
@@ -297,11 +305,13 @@ dialog::backdrop { background: #15151b52; }
   .virtual-stage:has(> .skeleton-card) { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .view-switch { padding: 2px; }
   .view-switch .icon-btn { width: 24px; }
-  .asset-image { border-radius: 13px; }
-  .asset-caption { padding: 11px 1px 0; }
-  .asset-name { font-size: 11px; }
+  .asset-card:not(.list) .asset-open { padding: 6px; border-radius: 16px; }
+  .asset-image { border-radius: 11px; }
+  .asset-caption { padding: 10px 5px 2px; gap: 4px; }
+  .asset-name { font-size: 12px; }
+  .skeleton-card { padding: 6px 6px 12px; border-radius: 16px; }
   .asset-subline { font-size: 9px; }
-  .save-btn { width: 28px; height: 28px; top: 8px; right: 8px; opacity: 1; background: #ffffffe0; }
+  .save-btn { width: 28px; height: 28px; top: 12px; right: 12px; opacity: 1; background: #ffffffe0; }
   .save-btn svg { width: 14px; height: 14px; }
   .collection-manage { padding: 7px; min-height: 32px; }
   .collection-manage > span:last-child { display: none; }

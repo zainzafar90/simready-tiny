@@ -2,6 +2,9 @@
 
 ## Unreleased — Faster previews
 
+- 3D previews load from a self-hosted R2 mirror (`simready-models.zainzafar.net`) with 1024px textures: 233 GB → 43 GB (81% smaller), 2–3× faster loads, no Hugging Face rate limits. Hugging Face remains the automatic fallback.
+- `tools/preview-models/` converts the catalog in shards (resumable, per-package done markers) and writes real preview sizes into the catalog; only 14 models now exceed 250 MB.
+- Transient viewer errors retry once with a plain message; an instant CSS tooltip explains the **Large** tag.
 - Opening an object loads its 3D model automatically, over a sharp image, with real progress. Auto-load adapts to the connection (250 MB fast, 100 MB slow or unknown phone, 25 MB 3G, 5–10 MB 2G, never with Data Saver); larger packages show one **Load 3D · size** button. Failures keep the image and offer **Retry**.
 - Removed the Explore/Stop 3D buttons, image badge, keyboard hint row, and repeated warnings.
 - `catalog:thumbs` now writes 512 px and 1024 px WebP thumbnails (~35 KB per asset instead of ~836 KB PNG).

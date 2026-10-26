@@ -130,7 +130,7 @@ export class SearchEngine {
             ids.push(i);
         }
         if (sort === 'size') {
-            const size = a => a.packageSizeBytes ?? a.usdSizeBytes ?? Infinity;
+            const size = a => a.previewSizeBytes ?? a.packageSizeBytes ?? a.usdSizeBytes ?? Infinity;
             ids.sort((i, j) => size(this.assets[i]) - size(this.assets[j]) || this.assets[i].name.localeCompare(this.assets[j].name));
         }
         else if (sort === 'name' || (!q.positive.length && !q.phrases.length))

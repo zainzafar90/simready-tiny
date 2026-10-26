@@ -1,7 +1,7 @@
 import { escapeHtml as e, safeUrl, formatBytes, copyText } from './utils.js';
 import { icon } from './icons.js';
-import { createViewer } from './detail-viewer.js';
-import { shouldAutoLoad } from './load-policy.js';
+import { createViewer, modelSources } from './detail-viewer.js';
+import { shouldAutoLoad, previewBytes } from './load-policy.js';
 
 const AUTO_LOAD_DELAY_MS = 250;
 
@@ -47,7 +47,7 @@ export function openDetail(dialog, asset, options) {
           <span class="detail-category">${e(asset.category)}</span><h3>${e(asset.name)}</h3>
           ${asset.description ? `<p class="detail-description">${e(asset.description)}</p>` : ''}
           <p class="section-label">DISCOVERY TAGS</p><div class="tag-list">${(asset.tags || []).slice(0, 20).map(tag => `<button class="tag ${aiTags.has(tag) ? 'ai' : ''}" data-tag="${e(tag)}" title="${aiTags.has(tag) ? 'Reviewed AI suggestion, not a verified physical property' : 'Filename / curated taxonomy'}">${e(tag)}</button>`).join('')}</div>
-          <p class="section-label">SOURCE DETAILS</p><dl class="metadata"><div><dt>Format</dt><dd>${e(asset.fileType.toUpperCase())}</dd></div><div><dt>Root layer</dt><dd>${e(formatBytes(asset.usdSizeBytes))}</dd></div><div><dt>Full package</dt><dd>${e(formatBytes(asset.packageSizeBytes))}</dd></div></dl>
+          <p class="section-label">SOURCE DETAILS</p><dl class="metadata"><div><dt>Format</dt><dd>${e(asset.fileType.toUpperCase())}</dd></div><div><dt>Root layer</dt><dd>${e(formatBytes(asset.usdSizeBytes))}</dd></div>${Number.isFinite(asset.previewSizeBytes) ? `<div><dt>3D preview</dt><dd>${e(formatBytes(asset.previewSizeBytes))}</dd></div>` : ''}<div><dt>Full package</dt><dd>${e(formatBytes(asset.packageSizeBytes))}</dd></div></dl>
           <div class="command-wrap"><p>DOWNLOAD FULL PACKAGE · HUGGING FACE CLI</p><code>${e(command)}</code><button data-detail="command">${icon('copy', 12)} Copy command</button></div>
           <p class="detail-footer">${e(asset.packagePath)} · ${e(revision.slice(0, 12))}<br>Visual preview only. Check the source package for physics and license.</p>
         </aside>
@@ -73,10 +73,11 @@ export function openDetail(dialog, asset, options) {
         status.textContent = view.phase === 'error' ? view.message : '';
         showAction(view.phase === 'error' ? 'Retry' : view.phase === 'idle' ? view.label : '');
     }
-    const viewer = root ? createViewer({ stage, asset, modelUrl: root, entry: safeUrl(config.viewerUrl, true) || '/vendor/usd/index.html', onState: render }) : null;
+    const modelUrls = modelSources({ upstream: root, usdPath: asset.usdPath, revision, baseUrl: config.modelBaseUrl });
+    const viewer = modelUrls.length ? createViewer({ stage, asset, modelUrls, entry: safeUrl(config.viewerUrl, true) || '/vendor/usd/index.html', onState: render }) : null;
     if (!viewer) status.textContent = 'No 3D model is indexed for this object.';
     else if (shouldAutoLoad(asset)) autoTimer = setTimeout(viewer.load, AUTO_LOAD_DELAY_MS);
-    else render({ phase: 'idle', label: `Load 3D · ${formatBytes(asset.packageSizeBytes)}` });
+    else render({ phase: 'idle', label: `Load 3D · ${formatBytes(previewBytes(asset))}` });
 
     function toggleInfo(force) {
         info.hidden = typeof force === 'boolean' ? !force : !info.hidden;

@@ -1,5 +1,30 @@
 const STALL_MS = 60000;
+const RETRY_DELAY_MS = 1500;
+const MAX_AUTO_RETRIES = 1;
+const TRANSIENT_ERROR = /could not fetch|failed to fetch|network|timed? ?out|429|50[234]/i;
+const REVISION = /^[0-9a-f]{40}$/;
 let viewerProbe = null;
+
+/** Mirror first, Hugging Face as fallback. */
+export function modelSources({ upstream, usdPath, revision, baseUrl }) {
+    const sources = upstream ? [upstream] : [];
+    if (!baseUrl) return sources;
+    if (!URL.canParse(baseUrl) || new URL(baseUrl).protocol !== 'https:' || !REVISION.test(revision || '') || !usdPath) {
+        console.warn('Ignoring invalid model mirror settings', { baseUrl, revision, usdPath });
+        return sources;
+    }
+    const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+    return [new URL(`${revision}/${usdPath.split('/').map(encodeURIComponent).join('/')}`, base).href, ...sources];
+}
+
+export function isTransientViewerError(message) {
+    return TRANSIENT_ERROR.test(String(message || ''));
+}
+
+export function viewerErrorMessage(message) {
+    if (isTransientViewerError(message)) return 'Couldn’t reach Hugging Face. Check your connection and retry.';
+    return `3D preview unavailable: ${String(message || 'unknown error').slice(0, 240)}`;
+}
 
 export function clampFraction(value) {
     const n = Number(value);
@@ -19,12 +44,12 @@ function probeViewer(entry) {
 }
 
 /** One isolated viewer iframe; reports phase changes. */
-export function createViewer({ stage, asset, modelUrl, entry, onState }) {
-    let frame = null, timer = 0, generation = 0, ready = false;
+export function createViewer({ stage, asset, modelUrls, entry, onState }) {
+    let frame = null, timer = 0, retryTimer = 0, retries = 0, source = 0, generation = 0, ready = false;
 
     function stop() {
         generation++; ready = false;
-        clearTimeout(timer);
+        clearTimeout(timer); clearTimeout(retryTimer);
         frame?.remove(); frame = null;
         stage.classList.remove('is-3d');
     }
@@ -43,12 +68,22 @@ export function createViewer({ stage, asset, modelUrl, entry, onState }) {
             frame = document.createElement('iframe');
             frame.title = `Interactive 3D: ${asset.name}`;
             frame.referrerPolicy = 'no-referrer';
-            frame.src = entry + '#model=' + encodeURIComponent(modelUrl);
+            frame.src = entry + '#model=' + encodeURIComponent(modelUrls[source]);
             stage.append(frame);
             timer = setTimeout(() => { if (current === generation) onState({ phase: 'loading', label: 'Still loading, large model', fraction: null }); }, STALL_MS);
         } catch (error) {
             if (current === generation) fail(error.message);
         }
+    }
+    function restart(label, delay) {
+        stop();
+        onState({ phase: 'loading', label, fraction: null });
+        retryTimer = setTimeout(load, delay);
+    }
+    function retryOrFail(message) {
+        if (isTransientViewerError(message) && retries < MAX_AUTO_RETRIES) { retries++; return restart('Connection hiccup, retrying', RETRY_DELAY_MS); }
+        if (source < modelUrls.length - 1) { source++; retries = 0; return restart('Trying the original source', 0); }
+        fail(viewerErrorMessage(message));
     }
     function onProgress(fraction, stageName) {
         if (ready && (fraction === null || fraction >= 1)) onState({ phase: 'ready' });
@@ -58,8 +93,11 @@ export function createViewer({ stage, asset, modelUrl, entry, onState }) {
         if (!frame || event.source !== frame.contentWindow || event.origin !== location.origin || event.data?.source !== 'atlas-viewer') return;
         const data = event.data;
         if (data.type === 'progress') onProgress(clampFraction(data.fraction), data.stage);
-        if (data.type === 'ready') { ready = true; clearTimeout(timer); stage.classList.add('is-3d'); onState({ phase: 'ready' }); }
-        if (data.type === 'error') fail(`3D preview unavailable: ${String(data.message || 'unknown error').slice(0, 240)}`);
+        if (data.type === 'ready') { ready = true; retries = 0; clearTimeout(timer); stage.classList.add('is-3d'); onState({ phase: 'ready' }); }
+        if (data.type === 'error') {
+            console.warn('Atlas viewer error', asset.id, String(data.message || '').slice(0, 300));
+            retryOrFail(data.message);
+        }
         if (data.type === 'warning') console.warn('Atlas viewer warning', asset.id, String(data.message || '').slice(0, 300));
     }
     window.addEventListener('message', onMessage);

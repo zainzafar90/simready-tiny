@@ -19,7 +19,8 @@ Browser
 Open preview (auto-loads up to a network-based limit: 250 MB fast, 100 MB slow 4G/phones, 25 MB 3G, 5–10 MB 2G, never with Data Saver)
     -> isolated same-origin iframe, image shown until ready
     -> separately bundled Hugging Face USD viewer
-    -> USD / layers / textures from original host
+    -> USD / layers / textures from the R2 mirror (1024px textures),
+       falling back to the original Hugging Face host
     -> revision-pinned files cached by public/sw.js
     -> iframe removed on close or navigation
 ```

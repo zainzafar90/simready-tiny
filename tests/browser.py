@@ -42,12 +42,12 @@ async def memory_mount(page, catalog, stress=False):
     await page.add_script_tag(content=module_source('utils','escapeHtml,safeUrl,formatBytes,readStorage,writeStorage,parseState,stateUrl,validatedSaved,downloadJSON,copyText'))
     await page.evaluate('''()=>{const u=window.__atlasModules.utils,original=u.safeUrl;u.safeUrl=(value,relative=false)=>window.__images[value]||original(value,relative);u.downloadJSON=(name,data)=>window.__exported={name,data};u.copyText=async text=>{window.__copied=text;};}''')
     await page.add_script_tag(content=module_source('icons','icon,categoryIcon'))
-    await page.add_script_tag(content=module_source('load-policy','AUTO_LOAD_LIMIT_BYTES,autoLoadLimitBytes,currentNetwork,shouldAutoLoad,loadTag'))
+    await page.add_script_tag(content=module_source('load-policy','AUTO_LOAD_LIMIT_BYTES,autoLoadLimitBytes,currentNetwork,previewBytes,shouldAutoLoad,loadTag'))
     await page.add_script_tag(content=module_source('collections','normalizeCollections,createCollection,collectionName,mergeCollections'))
-    imports="const {escapeHtml:e,safeUrl,formatBytes}=window.__atlasModules.utils;const {icon}=window.__atlasModules.icons;const {currentNetwork,loadTag}=window.__atlasModules['load-policy'];"
+    imports="const {escapeHtml:e,safeUrl,formatBytes}=window.__atlasModules.utils;const {icon}=window.__atlasModules.icons;const {currentNetwork,loadTag,previewBytes}=window.__atlasModules['load-policy'];"
     await page.add_script_tag(content=module_source('virtual-grid','VirtualGrid',imports))
-    await page.add_script_tag(content=module_source('detail-viewer','createViewer,clampFraction,stageLabel'))
-    imports="const {escapeHtml:e,safeUrl,formatBytes,copyText}=window.__atlasModules.utils;const {icon}=window.__atlasModules.icons;const {createViewer}=window.__atlasModules['detail-viewer'];const {shouldAutoLoad}=window.__atlasModules['load-policy'];"
+    await page.add_script_tag(content=module_source('detail-viewer','createViewer,modelSources,clampFraction,stageLabel,isTransientViewerError,viewerErrorMessage'))
+    imports="const {escapeHtml:e,safeUrl,formatBytes,copyText}=window.__atlasModules.utils;const {icon}=window.__atlasModules.icons;const {createViewer,modelSources}=window.__atlasModules['detail-viewer'];const {shouldAutoLoad,previewBytes}=window.__atlasModules['load-policy'];"
     await page.add_script_tag(content=module_source('detail','openDetail,packageCommand',imports))
     app=(ROOT/'src/app.js').read_text();app=re.sub(r'^import .*?;\s*','',app,flags=re.M)
     app=app.replace("import('./detail.js')","Promise.resolve(window.__atlasModules.detail)").replace('import.meta.url',"'http://atlas.test/app/app.js'")

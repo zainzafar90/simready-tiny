@@ -8,10 +8,11 @@ async function start() {
     try {
         const raw = new URLSearchParams(location.hash.slice(1)).get('model');
         const url = new URL(raw);
-        // This embedded viewer is not a general-purpose arbitrary URL proxy.
+        /* not an arbitrary URL proxy */
+        const mirror = url.protocol === 'https:' && url.hostname === 'simready-models.zainzafar.net' && /^\/[0-9a-f]{40}\//.test(url.pathname);
         const upstream = url.protocol === 'https:' && url.hostname === 'huggingface.co' && url.pathname.startsWith('/datasets/nvidia/simready-assets/resolve/');
         const selfHosted = url.origin === location.origin && url.pathname.startsWith('/preview-models/');
-        if (!upstream && !selfHosted)
+        if (!mirror && !upstream && !selfHosted)
             throw new Error('Unsupported model origin.');
         const compact = matchMedia('(max-width:600px)').matches;
         viewer = createViewer(host, { background: '#373537', onContextLost: () => send('error', { message: 'GPU context lost. Close and reopen this preview.' }) });

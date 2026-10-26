@@ -1,6 +1,6 @@
 import { escapeHtml as e, safeUrl, formatBytes } from './utils.js';
 import { icon } from './icons.js';
-import { currentNetwork, loadTag } from './load-policy.js';
+import { currentNetwork, loadTag, previewBytes } from './load-policy.js';
 /** Only visible cards + overscan are mounted. Existing image nodes are retained on scroll. */
 export class VirtualGrid {
     constructor(stage, scroll, onOpen) {
@@ -70,11 +70,11 @@ export class VirtualGrid {
         this.paint(); }); }
     layout() {
         this.width = this.stage.clientWidth;
-        this.gap = this.view === 'list' ? 8 : (this.width < 500 ? 12 : 18);
-        const min = this.width < 500 ? 140 : 180;
+        this.gap = this.view === 'list' ? 8 : (this.width < 500 ? 12 : 16);
+        const min = this.width < 500 ? 140 : 200;
         this.cols = this.view === 'list' ? 1 : Math.max(1, Math.floor((this.width + this.gap) / (min + this.gap)));
         this.cardWidth = (this.width - this.gap * (this.cols - 1)) / this.cols;
-        this.cardHeight = this.view === 'list' ? 75 : Math.round(this.cardWidth) + 62;
+        this.cardHeight = this.view === 'list' ? 75 : Math.round(this.cardWidth) + (this.width < 500 ? 50 : 58);
         this.rowHeight = this.cardHeight + this.gap;
         this.stage.style.height = `${Math.max(0, Math.ceil(this.items.length / this.cols) * this.rowHeight - this.gap)}px`;
         this.paint();
@@ -121,7 +121,7 @@ export class VirtualGrid {
         node.setAttribute('role', 'listitem');
         node.setAttribute('aria-posinset', String(i + 1));
         node.setAttribute('aria-setsize', String(this.items.length));
-        node.innerHTML = `<button class="asset-open" data-open="${e(a.id)}" aria-label="Preview ${e(a.name)}"><span class="asset-image${url ? ' is-loading' : ''}">${url ? `<img src="${e(url)}" alt="" loading="${i < this.cols ? 'eager' : 'lazy'}" decoding="async" width="256" height="256" draggable="false" referrerpolicy="no-referrer">` : `<span class="missing-preview">${icon('cube', 30)}No preview</span>`}</span><span class="asset-caption"><span class="asset-name" title="${e(a.name)}">${e(a.name)}</span><span class="asset-subline"><span class="asset-category">${a.category === 'Other objects' ? '' : e(a.category)}</span><span class="asset-size">${Number.isFinite(a.packageSizeBytes) ? e(formatBytes(a.packageSizeBytes)) : ''}</span>${tag ? `<span class="load-tag" title="${e(tag.title)}">${e(tag.label)}</span>` : ''}</span></span></button><button class="save-btn ${on ? 'is-saved' : ''}" data-save="${e(a.id)}" aria-label="${on ? 'Unsave' : 'Save'} ${e(a.name)}" aria-pressed="${on}">${icon('heart', 16)}</button>`;
+        node.innerHTML = `<button class="asset-open" data-open="${e(a.id)}" aria-label="Preview ${e(a.name)}${tag ? `. ${e(tag.title)}` : ''}"><span class="asset-image${url ? ' is-loading' : ''}">${url ? `<img src="${e(url)}" alt="" loading="${i < this.cols ? 'eager' : 'lazy'}" decoding="async" width="256" height="256" draggable="false" referrerpolicy="no-referrer">` : `<span class="missing-preview">${icon('cube', 30)}No preview</span>`}</span><span class="asset-caption"><span class="asset-name" title="${e(a.name)}">${e(a.name)}</span><span class="asset-subline"><span class="asset-category">${a.category === 'Other objects' ? '' : e(a.category)}</span><span class="asset-size">${Number.isFinite(previewBytes(a)) ? e(formatBytes(previewBytes(a))) : ''}</span>${tag ? `<span class="load-tag" data-tip="${e(tag.title)}">${e(tag.label)}</span>` : ''}</span></span></button><button class="save-btn ${on ? 'is-saved' : ''}" data-save="${e(a.id)}" aria-label="${on ? 'Unsave' : 'Save'} ${e(a.name)}" aria-pressed="${on}">${icon('heart', 16)}</button>`;
         return node;
     }
     navigate(event) {

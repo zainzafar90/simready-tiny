@@ -4,5 +4,6 @@
   "dataset": "nvidia/simready-assets",
   "viewerUrl": "/vendor/usd/index.html",
   "sourceUrl": "https://huggingface.co/datasets/nvidia/simready-assets",
-  "contactEmail": "zainzafar90@gmail.com"
+  "contactEmail": "zainzafar90@gmail.com",
+  "modelBaseUrl": "https://simready-models.zainzafar.net/"
 }

@@ -8,3 +8,4 @@ reports/
 .wrangler/
 public/vendor/
 public/preview-models/
+tools/preview-models/manifest.json.gz

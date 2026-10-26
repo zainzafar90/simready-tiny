@@ -2,7 +2,7 @@ const CACHE = 'atlas-hf-v1';
 const MAX_ENTRIES = 3000;
 const MAX_BYTES = 2 * 1024 ** 3;
 /* revision-pinned URLs never change */
-const PINNED = /^https:\/\/huggingface\.co\/datasets\/nvidia\/simready-assets\/resolve\/[0-9a-f]{40}\//;
+const PINNED = /^https:\/\/(huggingface\.co\/datasets\/nvidia\/simready-assets\/resolve|simready-models\.zainzafar\.net)\/[0-9a-f]{40}\//;
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => event.waitUntil((async () => {
