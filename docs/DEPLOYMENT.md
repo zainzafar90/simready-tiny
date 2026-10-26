@@ -4,9 +4,21 @@ The site is static files on Cloudflare Workers static assets. The optional model
 
 ## 1. Configure
 
-Set your values in `public/config.json` (see the README's configuration table): `siteUrl`, optional `modelBaseUrl` and `contactEmail`, and the brand `name`.
+Set your values in `public/config.json`:
+
+| Key | Purpose |
+|---|---|
+| `name`, `subtitle` | Brand in the sidebar and title. The first word is the wordmark; the rest becomes the badge. |
+| `siteUrl` | Your public https URL, used for canonical and share-card tags. |
+| `modelBaseUrl` | Your model mirror (https). Remove it to load models from Hugging Face. |
+| `contactEmail` | Shows a **Request removal** link. Remove it to hide the link. |
+| `viewerUrl` | Path of the built viewer (default `/vendor/usd/index.html`). |
+
+The CSP and the viewer's allowed hosts are derived from this file.
 
 In `wrangler.jsonc`, set `name` to your Worker name and either point `routes` at your own custom domain (its zone must be in your Cloudflare account) or remove `routes` to use a `workers.dev` URL. `assets.html_handling` stays `"none"`, so `/vendor/usd/index.html` is served as is instead of being redirected.
+
+Then regenerate the share image and README logos with your name and domain: `python3 tools/brand/render-brand.py`.
 
 ## 2. Build and deploy
 
@@ -35,7 +47,16 @@ Without a mirror, models load from Hugging Face. To host the smaller copies your
 
 1. Create a bucket: `npx wrangler r2 bucket create <bucket>`.
 2. Create an R2 **Account API token** with *Object Read & Write* on that bucket, and keep the Access Key ID and Secret Access Key outside the repo (for example `~/.config/<name>/r2.env`, mode 600).
-3. Build the manifest and run the converter. See the README's "model mirror" section, and run shards in parallel on several machines.
+3. Build the manifest and run the converter. Shards can run in parallel on several machines (`box-run.sh` wraps one shard; set `PAUSE_PATTERN` to pause other work meanwhile):
+
+   ```sh
+   cd tools/preview-models && npm ci
+   npm run manifest                    # needs .cache from npm run catalog:sync
+   set -a; . ~/.config/<name>/r2.env; set +a
+   node src/convert.mjs --shard 1/4    # ... through --shard 4/4
+   ```
+
+   Each finished package writes a `_done/` marker, so reruns skip completed work.
 4. Write real preview sizes into the catalog: `node tools/preview-models/src/catalog-sizes.mjs`.
 5. Edit the origins in `tools/preview-models/r2-cors.json`, then `npx wrangler r2 bucket cors set <bucket> --file tools/preview-models/r2-cors.json`.
 6. Connect a custom domain to the bucket (dashboard, or `wrangler r2 bucket domain add`). Use a first-level subdomain, so Cloudflare's free certificate covers it.
